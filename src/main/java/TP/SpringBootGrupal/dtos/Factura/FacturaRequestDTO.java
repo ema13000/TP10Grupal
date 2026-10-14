@@ -1,4 +1,6 @@
-package TP.SpringBootGrupal.dtos;
+package TP.SpringBootGrupal.dtos.Factura;
+
+import TP.SpringBootGrupal.dtos.FacturaDetalle.FacturaDetalleRequestDTO;
 
 import java.util.List;
 

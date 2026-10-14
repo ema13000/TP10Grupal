@@ -1,6 +1,5 @@
-package TP.SpringBootGrupal.dtos;
+package TP.SpringBootGrupal.dtos.Factura;
 
-import TP.SpringBootGrupal.entities.FacturaVenta;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

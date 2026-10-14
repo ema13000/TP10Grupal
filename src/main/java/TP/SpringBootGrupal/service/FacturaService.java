@@ -1,6 +1,6 @@
 package TP.SpringBootGrupal.service;
 
-import TP.SpringBootGrupal.dtos.FacturaReporteDTO;
+import TP.SpringBootGrupal.dtos.Factura.FacturaReporteDTO;
 
 public interface FacturaService {
 }

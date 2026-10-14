@@ -1,7 +1,6 @@
 package TP.SpringBootGrupal.service;
 
-import TP.SpringBootGrupal.dtos.FacturaReporteDTO;
-import TP.SpringBootGrupal.entities.*;
+import TP.SpringBootGrupal.dtos.Factura.FacturaReporteDTO;
 import TP.SpringBootGrupal.repository.FacturaVentaRepository;
 import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
@@ -12,15 +11,10 @@ import com.lowagie.text.pdf.PdfWriter;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
-import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;

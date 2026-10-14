@@ -1,6 +1,6 @@
 package TP.SpringBootGrupal.controller;
 
-import TP.SpringBootGrupal.dtos.FacturaReporteDTO;
+import TP.SpringBootGrupal.dtos.Factura.FacturaReporteDTO;
 import TP.SpringBootGrupal.service.FacturaServiceImpl;
 import com.lowagie.text.DocumentException;
 import org.springframework.format.annotation.DateTimeFormat;
