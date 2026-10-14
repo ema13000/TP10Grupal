@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
 import java.util.Date;
 
 @Getter
@@ -12,13 +13,17 @@ import java.util.Date;
 @AllArgsConstructor
 @NoArgsConstructor
 public class FacturaReporteDTO {
-    Long numeroFactura;
-    Date fechaEmision;
-    String clienteDenominacion;
-    String condicionIva;
-    String puntoVentaDescripcion;
-    double importeTotal;
-    long cantidadItems;
+
+    private Long id;
+    private Long numeroFactura;
+    private Date fechaEmision;
+    private String clienteDenominacion;
+    private String condicionIva;
+    private String puntoVentaDescripcion;
+    private double importeTotal;
+    private long cantidadItems;
+    private String estado;
+    private String observaciones;
 
     public static FacturaReporteDTO toDTO(FacturaVenta factura) {
         String cliente = factura.getCliente() == null
@@ -26,14 +31,16 @@ public class FacturaReporteDTO {
                 : factura.getCliente().getDenominacion();
 
         return new FacturaReporteDTO(
+                factura.getId(),
                 factura.getNumero(),
                 factura.getFechaEmision(),
                 cliente,
                 factura.getCondicionIva().getDenominacion(),
                 factura.getPuntoVenta().getDescripcion(),
                 factura.getImporteTotal(),
-                factura.getDetalles().size()
+                factura.getDetalles().size(),
+                factura.getEstado(),
+                factura.getObservaciones()
         );
     }
 }
-

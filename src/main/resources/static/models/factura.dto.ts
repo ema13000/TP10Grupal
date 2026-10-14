@@ -1,41 +1,34 @@
 export interface FacturaDetalleRequestDTO {
     articuloId: number;
     cantidad: number;
-    precioUnitario: number;
-    porcentajeIva?: number;
+    porcentajeBonificacion: number | null;
 }
 
 export interface FacturaRequestDTO {
-    numeroComprobante: string;
-    fechaEmision?: string;
-    clienteId: number;
+    clienteId: number | null;
     condicionIvaId: number;
-    puntoVentaId: number;
     tipoMonedaId: number;
-    estado?: string;
-    observaciones?: string;
+    puntoVentaId: number;
     detalles: FacturaDetalleRequestDTO[];
 }
 
 export interface FacturaReporteDTO {
     id: number;
-    numeroComprobante: string;
+    numeroFactura: number;
     fechaEmision: string;
-    clienteNombre: string;
+    clienteDenominacion: string;
     condicionIva: string;
-    puntoVenta: string;
-    moneda: string;
-    importeNeto: number;
-    importeIva: number;
+    puntoVentaDescripcion: string;
     importeTotal: number;
+    cantidadItems: number;
     estado: string;
-    observaciones?: string;
+    observaciones: string | null;
 }
 
 export interface FacturaFiltrosDTO {
     cliente?: string;
     estado?: string;
-    numeroComprobante?: string;
+    numeroFactura?: string;
     condicionIva?: string;
     fechaDesde?: string;
     fechaHasta?: string;

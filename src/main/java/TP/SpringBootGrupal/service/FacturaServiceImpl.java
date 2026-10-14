@@ -396,4 +396,41 @@ public class FacturaServiceImpl implements FacturaService {
     private BigDecimal redondear(BigDecimal importe) {
         return importe.setScale(2, RoundingMode.HALF_UP);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FacturaReporteDTO> findAllParaListado() {
+        List<FacturaReporteDTO> resultado = new ArrayList<>();
+
+        for (FacturaVenta factura : facturaVentaRepository.findAll()) {
+            resultado.add(FacturaReporteDTO.toDTO(factura));
+        }
+
+        return resultado;
+    }
+
+    @Override
+    @Transactional
+    public FacturaReporteDTO anular(
+            Long id,
+            Long usuarioId,
+            String observaciones
+    ) {
+        FacturaVenta factura = facturaVentaRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe la factura con ID " + id
+                ));
+
+        if (!estaActiva(factura)) {
+            return FacturaReporteDTO.toDTO(factura);
+        }
+
+        // Reutiliza tu baja lógica y su registro de auditoría.
+        delete(id, usuarioId);
+
+        factura.setObservaciones(observaciones);
+        factura = facturaVentaRepository.save(factura);
+
+        return FacturaReporteDTO.toDTO(factura);
+    }
 }

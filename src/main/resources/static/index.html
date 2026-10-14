@@ -17,6 +17,20 @@
 </header>
 
 <main class="contenedor">
+    <div class="panel">
+        <div class="grilla-form">
+            <div class="campo">
+                <label for="inputUsuario">ID del usuario que opera</label>
+                <input type="number" id="inputUsuario" min="1">
+            </div>
+
+            <div class="campo">
+                <label for="inputPorcentajeIva">Porcentaje de IVA de la factura</label>
+                <input type="number" id="inputPorcentajeIva"
+                       min="0" step="any">
+            </div>
+        </div>
+    </div>
     <div id="seccionListado">
         <div class="panel">
             <div class="panel-titulo">
@@ -40,7 +54,7 @@
                     <label for="selFiltroEstado">Estado</label>
                     <select id="selFiltroEstado">
                         <option value="">Todos</option>
-                        <option value="EMITIDA">Emitidas</option>
+                        <option value="PENDIENTE">Pendientes</option>
                         <option value="ANULADA">Anuladas</option>
                     </select>
                 </div>
@@ -70,21 +84,21 @@
                 <table>
                     <thead>
                     <tr>
-                        <th>Comprobante</th>
+                        <th>Número</th>
                         <th>Fecha</th>
                         <th>Cliente</th>
-                        <th>Cond. IVA</th>
-                        <th>Pto. Venta</th>
-                        <th class="texto-derecha">Neto</th>
-                        <th class="texto-derecha">IVA</th>
-                        <th class="texto-derecha">Total</th>
-                        <th class="texto-centro">Estado</th>
-                        <th class="texto-centro">Operaciones</th>
+                        <th>Condición IVA</th>
+                        <th>Punto de venta</th>
+                        <th>Total</th>
+                        <th>Estado</th>
+                        <th>Operaciones</th>
                     </tr>
                     </thead>
                     <tbody id="tbodyFacturas">
                     <tr>
-                        <td colspan="10" class="texto-centro">Cargando datos del servidor...</td>
+                        <td colspan="8" class="texto-centro">
+                            Cargando datos del servidor...
+                        </td>
                     </tr>
                     </tbody>
                 </table>
@@ -103,13 +117,8 @@
 
                 <div class="grilla-form">
                     <div class="campo">
-                        <label for="inputNumero">Número de Factura</label>
-                        <input type="text" id="inputNumero" required>
-                        <span class="ayuda-input">Generado automáticamente (editable)</span>
-                    </div>
-                    <div class="campo">
-                        <label for="inputFecha">Fecha de Emisión</label>
-                        <input type="date" id="inputFecha" required>
+                        <label for="inputNumero">Número de factura</label>
+                        <input type="number" id="inputNumero" min="1" required>
                     </div>
                     <div class="campo">
                         <label for="inputPuntoVenta">ID Punto de Venta</label>
@@ -129,10 +138,7 @@
                     </div>
                 </div>
 
-                <div class="campo" style="margin-top: 8px;">
-                    <label for="inputObservaciones">Observaciones del comprobante</label>
-                    <input type="text" id="inputObservaciones" placeholder="Opcional: nota de entrega, condición de pago, etc.">
-                </div>
+
             </div>
 
             <div class="panel">
@@ -145,33 +151,14 @@
                     <table>
                         <thead>
                         <tr>
-                            <th style="width: 28%;">ID Artículo</th>
-                            <th style="width: 18%;">Cantidad</th>
-                            <th style="width: 22%;">Precio Unit. ($)</th>
-                            <th style="width: 14%;">% IVA</th>
-                            <th style="width: 12%;" class="texto-derecha">Subtotal</th>
-                            <th style="width: 6%;" class="texto-centro">Quitar</th>
+                            <th>ID artículo</th>
+                            <th>Cantidad</th>
+                            <th>Bonificación (%)</th>
+                            <th>Quitar</th>
                         </tr>
                         </thead>
                         <tbody id="tbodyRenglones"></tbody>
                     </table>
-                </div>
-
-                <div class="resumen-totales">
-                    <div class="caja-totales">
-                        <div class="fila-total">
-                            <span>Importe Neto:</span>
-                            <strong id="txtNeto">$0.00</strong>
-                        </div>
-                        <div class="fila-total">
-                            <span>Monto IVA:</span>
-                            <strong id="txtIva">$0.00</strong>
-                        </div>
-                        <div class="fila-total final">
-                            <span>Total Factura:</span>
-                            <span id="txtTotal">$0.00</span>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="acciones-barra" style="margin-top: 20px;">

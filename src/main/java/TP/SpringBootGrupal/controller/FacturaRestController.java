@@ -1,5 +1,6 @@
 package TP.SpringBootGrupal.controller;
 
+import TP.SpringBootGrupal.dtos.Factura.FacturaEstadoRequestDTO;
 import TP.SpringBootGrupal.dtos.Factura.FacturaReporteDTO;
 import TP.SpringBootGrupal.dtos.Factura.FacturaRequestDTO;
 import TP.SpringBootGrupal.service.FacturaServiceImpl;
@@ -7,6 +8,7 @@ import com.lowagie.text.DocumentException;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.util.Date;
@@ -25,7 +27,25 @@ public class FacturaRestController {
 
     @GetMapping
     public ResponseEntity<List<FacturaReporteDTO>> findAll() {
-        return ResponseEntity.ok(service.findAll());
+        return ResponseEntity.ok(service.findAllParaListado());
+    }
+
+    @PutMapping("/{id}/estado")
+    public ResponseEntity<FacturaReporteDTO> actualizarEstado(
+            @PathVariable("id") Long id,
+            @RequestParam("usuarioId") Long usuarioId,
+            @RequestBody FacturaEstadoRequestDTO dto
+    ) {
+        if (!"ANULADA".equals(dto.estado())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Esta operación solo permite anular facturas"
+            );
+        }
+
+        return ResponseEntity.ok(
+                service.anular(id, usuarioId, dto.observaciones())
+        );
     }
 
     @GetMapping("/{id}")

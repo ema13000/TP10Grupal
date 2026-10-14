@@ -30,4 +30,12 @@ public interface FacturaService {
     public List<FacturaReporteDTO> findByListaPrecioArticulo(
             Long idListaPrecioArticulo
     );
+
+    List<FacturaReporteDTO> findAllParaListado();
+
+    FacturaReporteDTO anular(
+            Long id,
+            Long usuarioId,
+            String observaciones
+    );
 }

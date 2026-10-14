@@ -1,276 +1,309 @@
-import { FacturaDetalleRequestDTO, FacturaReporteDTO, FacturaRequestDTO } from './models/factura.dto.js';
+import type {
+    FacturaDetalleRequestDTO,
+    FacturaFiltrosDTO,
+    FacturaReporteDTO,
+    FacturaRequestDTO
+} from './models/factura.dto.js';
+
 import { FacturaService } from './services/FacturaService.js';
 
 const api = new FacturaService();
-
-let listaFacturas: FacturaReporteDTO[] = [];
 let renglones: FacturaDetalleRequestDTO[] = [];
 
-const seccionListado = document.getElementById('seccionListado') as HTMLElement;
-const seccionAlta = document.getElementById('seccionAlta') as HTMLElement;
-const tabListado = document.getElementById('tabListado') as HTMLButtonElement;
-const tabNueva = document.getElementById('tabNueva') as HTMLButtonElement;
+function elemento<T extends HTMLElement>(id: string): T {
+    const encontrado = document.getElementById(id);
 
-const tbodyFacturas = document.getElementById('tbodyFacturas') as HTMLTableSectionElement;
-const tbodyRenglones = document.getElementById('tbodyRenglones') as HTMLTableSectionElement;
-const formAltaFactura = document.getElementById('formAltaFactura') as HTMLFormElement;
-const contadorFacturas = document.getElementById('contadorFacturas') as HTMLElement;
+    if (!encontrado) {
+        throw new Error(`Falta el elemento HTML: ${id}`);
+    }
 
-document.addEventListener('DOMContentLoaded', () => {
-    traerFacturasDelServidor();
-
-    tabListado.addEventListener('click', irAListado);
-    tabNueva.addEventListener('click', irANuevaFactura);
-    document.getElementById('btnVolver')?.addEventListener('click', irAListado);
-    document.getElementById('btnCancelarAlta')?.addEventListener('click', irAListado);
-
-    document.getElementById('btnAplicarFiltros')?.addEventListener('click', filtrarComprobantes);
-    document.getElementById('btnLimpiarFiltros')?.addEventListener('click', limpiarFormularioFiltros);
-
-    document.getElementById('btnSumarRenglon')?.addEventListener('click', agregarRenglonVacio);
-    formAltaFactura.addEventListener('submit', enviarNuevaFactura);
-});
-
-function irANuevaFactura(): void {
-    seccionListado.classList.add('oculto');
-    seccionAlta.classList.remove('oculto');
-    tabListado.classList.remove('activo');
-    tabNueva.classList.add('activo');
-
-    formAltaFactura.reset();
-
-    (document.getElementById('inputFecha') as HTMLInputElement).valueAsDate = new Date();
-    const nroAleatorio = Math.floor(1000 + Math.random() * 9000);
-    (document.getElementById('inputNumero') as HTMLInputElement).value = `0001-0000${nroAleatorio}`;
-    (document.getElementById('inputPuntoVenta') as HTMLInputElement).value = '1';
-    (document.getElementById('inputCondicionIva') as HTMLInputElement).value = '1';
-    (document.getElementById('inputMoneda') as HTMLInputElement).value = '1';
-
-    renglones = [];
-    agregarRenglonVacio();
+    return encontrado as T;
 }
 
-function irAListado(): void {
-    seccionAlta.classList.add('oculto');
-    seccionListado.classList.remove('oculto');
-    tabNueva.classList.remove('activo');
-    tabListado.classList.add('activo');
-    traerFacturasDelServidor();
+function valor(id: string): string {
+    return elemento<HTMLInputElement>(id).value.trim();
 }
 
-async function traerFacturasDelServidor(): Promise<void> {
-    tbodyFacturas.innerHTML = `<tr><td colspan="10" class="texto-centro">Consultando comprobantes...</td></tr>`;
+function numeroCampo(id: string): number {
+    const texto = valor(id);
+    const numero = Number(texto);
+
+    if (texto === '' || !Number.isFinite(numero)) {
+        throw new Error(`Completá correctamente el campo ${id}.`);
+    }
+
+    return numero;
+}
+
+function configurarOperacion(numero?: number): void {
+    api.configurar(
+        numeroCampo('inputUsuario'),
+        numeroCampo('inputPorcentajeIva'),
+        numero
+    );
+}
+
+async function ejecutar(accion: () => Promise<void>): Promise<void> {
     try {
-        listaFacturas = await api.obtenerFacturas();
-        armarTablaFacturas(listaFacturas);
-    } catch (err) {
-        console.error('Error al cargar facturas:', err);
-        tbodyFacturas.innerHTML = `<tr><td colspan="10" class="texto-centro" style="color:#ef4444;">No se pudo conectar con la API en http://localhost:8080/api/facturas</td></tr>`;
+        await accion();
+    } catch (error) {
+        console.error(error);
+        alert(error instanceof Error ? error.message : String(error));
     }
 }
 
-function armarTablaFacturas(datos: FacturaReporteDTO[]): void {
-    tbodyFacturas.innerHTML = '';
-    contadorFacturas.textContent = `${datos.length} comprobante(s)`;
+function leerFiltros(): FacturaFiltrosDTO {
+    return {
+        numeroFactura: valor('txtFiltroNumero'),
+        cliente: valor('txtFiltroCliente'),
+        condicionIva: valor('txtFiltroIva'),
+        estado: valor('selFiltroEstado'),
+        fechaDesde: valor('txtFechaDesde'),
+        fechaHasta: valor('txtFechaHasta')
+    };
+}
 
-    if (datos.length === 0) {
-        tbodyFacturas.innerHTML = `<tr><td colspan="10" class="texto-centro">No hay facturas que coincidan con la búsqueda.</td></tr>`;
+async function cargarListado(): Promise<void> {
+    const facturas = await api.obtenerFacturas(leerFiltros());
+    dibujarFacturas(facturas);
+}
+
+function dibujarFacturas(facturas: FacturaReporteDTO[]): void {
+    const tbody = elemento<HTMLTableSectionElement>('tbodyFacturas');
+    tbody.replaceChildren();
+
+    elemento('contadorFacturas').textContent =
+        `${facturas.length} comprobante(s)`;
+
+    if (facturas.length === 0) {
+        const fila = tbody.insertRow();
+        const celda = fila.insertCell();
+        celda.colSpan = 8;
+        celda.textContent = 'No hay facturas que coincidan con la búsqueda.';
         return;
     }
 
-    datos.forEach(fac => {
-        const fila = document.createElement('tr');
-        const fecha = fac.fechaEmision ? new Date(fac.fechaEmision).toLocaleDateString('es-AR') : '-';
-        const estaAnulada = fac.estado?.toUpperCase() === 'ANULADA';
+    for (const factura of facturas) {
+        const fila = tbody.insertRow();
 
-        fila.innerHTML = `
-            <td><strong>${fac.numeroComprobante || fac.id}</strong></td>
-            <td>${fecha}</td>
-            <td>${fac.clienteNombre || '-'}</td>
-            <td>${fac.condicionIva || '-'}</td>
-            <td>${fac.puntoVenta || '-'}</td>
-            <td class="texto-derecha">$${Number(fac.importeNeto || 0).toFixed(2)}</td>
-            <td class="texto-derecha">$${Number(fac.importeIva || 0).toFixed(2)}</td>
-            <td class="texto-derecha"><strong>$${Number(fac.importeTotal || 0).toFixed(2)}</strong></td>
-            <td class="texto-centro">
-                <span class="estado-tag ${estaAnulada ? 'tag-anulada' : 'tag-emitida'}">
-                    ${fac.estado || 'EMITIDA'}
-                </span>
-            </td>
-            <td class="texto-centro">
-                <button class="btn-chico btn-anular" ${estaAnulada ? 'disabled' : ''}>Anular</button>
-                <button class="btn-chico btn-borrar">Borrar</button>
-            </td>
-        `;
+        const datos = [
+            String(factura.numeroFactura),
+            factura.fechaEmision.slice(0, 10),
+            factura.clienteDenominacion,
+            factura.condicionIva,
+            factura.puntoVentaDescripcion,
+            `$${factura.importeTotal.toFixed(2)}`,
+            factura.estado
+        ];
 
-        const btnAnular = fila.querySelector('.btn-anular') as HTMLButtonElement;
-        btnAnular.addEventListener('click', async () => {
-            const motivo = prompt(`Ingresá una observación para anular la factura ${fac.numeroComprobante}:`, 'Anulada por error de carga');
-            if (motivo !== null) {
-                await api.actualizarEstado(fac.id, 'ANULADA', motivo);
-                await traerFacturasDelServidor();
-            }
-        });
-
-        const btnBorrar = fila.querySelector('.btn-borrar') as HTMLButtonElement;
-        btnBorrar.addEventListener('click', async () => {
-            if (confirm(`¿Seguro que querés eliminar la factura ${fac.numeroComprobante} (ID: ${fac.id})?`)) {
-                await api.eliminarFactura(fac.id);
-                await traerFacturasDelServidor();
-            }
-        });
-
-        tbodyFacturas.appendChild(fila);
-    });
-}
-
-function filtrarComprobantes(): void {
-    const nro = (document.getElementById('txtFiltroNumero') as HTMLInputElement).value.toLowerCase().trim();
-    const cliente = (document.getElementById('txtFiltroCliente') as HTMLInputElement).value.toLowerCase().trim();
-    const iva = (document.getElementById('txtFiltroIva') as HTMLInputElement).value.toLowerCase().trim();
-    const estado = (document.getElementById('selFiltroEstado') as HTMLSelectElement).value;
-    const desde = (document.getElementById('txtFechaDesde') as HTMLInputElement).value;
-    const hasta = (document.getElementById('txtFechaHasta') as HTMLInputElement).value;
-
-    const resultado = listaFacturas.filter(f => {
-        const cumpleNro = !nro || (f.numeroComprobante && f.numeroComprobante.toLowerCase().includes(nro));
-        const cumpleCli = !cliente || (f.clienteNombre && f.clienteNombre.toLowerCase().includes(cliente));
-        const cumpleIva = !iva || (f.condicionIva && f.condicionIva.toLowerCase().includes(iva));
-        const cumpleEstado = !estado || (f.estado && f.estado.toUpperCase() === estado);
-
-        let cumpleFecha = true;
-        if (f.fechaEmision && (desde || hasta)) {
-            const fechaIso = new Date(f.fechaEmision).toISOString().slice(0, 10);
-            if (desde && fechaIso < desde) cumpleFecha = false;
-            if (hasta && fechaIso > hasta) cumpleFecha = false;
+        for (const dato of datos) {
+            fila.insertCell().textContent = dato;
         }
 
-        return cumpleNro && cumpleCli && cumpleIva && cumpleEstado && cumpleFecha;
-    });
+        const acciones = fila.insertCell();
 
-    armarTablaFacturas(resultado);
+        const anular = document.createElement('button');
+        anular.textContent = 'Anular';
+        anular.className = 'btn-chico btn-anular';
+        anular.disabled = factura.estado === 'ANULADA';
+
+        anular.addEventListener('click', () => {
+            void ejecutar(async () => {
+                const motivo = prompt('Observación de la anulación:');
+
+                if (motivo === null) {
+                    return;
+                }
+
+                configurarOperacion();
+
+                await api.actualizarEstado(
+                    factura.id,
+                    'ANULADA',
+                    motivo
+                );
+
+                await cargarListado();
+            });
+        });
+
+        const eliminar = document.createElement('button');
+        eliminar.textContent = 'Eliminar (baja lógica)';
+        eliminar.className = 'btn-chico btn-borrar';
+        eliminar.disabled = factura.estado === 'ANULADA';
+
+        eliminar.addEventListener('click', () => {
+            void ejecutar(async () => {
+                if (!confirm(
+                    `¿Dar de baja la factura ${factura.numeroFactura}?`
+                )) {
+                    return;
+                }
+
+                configurarOperacion();
+                await api.eliminarFactura(factura.id);
+                await cargarListado();
+            });
+        });
+
+        acciones.append(anular, eliminar);
+    }
 }
 
-function limpiarFormularioFiltros(): void {
-    (document.getElementById('txtFiltroNumero') as HTMLInputElement).value = '';
-    (document.getElementById('txtFiltroCliente') as HTMLInputElement).value = '';
-    (document.getElementById('txtFiltroIva') as HTMLInputElement).value = '';
-    (document.getElementById('selFiltroEstado') as HTMLSelectElement).value = '';
-    (document.getElementById('txtFechaDesde') as HTMLInputElement).value = '';
-    (document.getElementById('txtFechaHasta') as HTMLInputElement).value = '';
-    armarTablaFacturas(listaFacturas);
-}
-
-function agregarRenglonVacio(): void {
+function agregarRenglon(): void {
     renglones.push({
         articuloId: 1,
         cantidad: 1,
-        precioUnitario: 1000,
-        porcentajeIva: 21
+        porcentajeBonificacion: 0
     });
+
     dibujarRenglones();
 }
 
 function dibujarRenglones(): void {
-    tbodyRenglones.innerHTML = '';
+    const tbody = elemento<HTMLTableSectionElement>('tbodyRenglones');
+    tbody.replaceChildren();
 
-    renglones.forEach((renglon, idx) => {
-        const tr = document.createElement('tr');
-        const netoFila = renglon.cantidad * renglon.precioUnitario;
+    renglones.forEach((renglon, indice) => {
+        const fila = tbody.insertRow();
 
-        tr.innerHTML = `
-            <td><input type="number" class="in-art" value="${renglon.articuloId}" min="1" style="width:100%; padding:6px;"></td>
-            <td><input type="number" class="in-cant" value="${renglon.cantidad}" min="1" style="width:100%; padding:6px;"></td>
-            <td><input type="number" class="in-precio" value="${renglon.precioUnitario}" min="0" step="0.01" style="width:100%; padding:6px;"></td>
-            <td>
-                <select class="in-iva" style="width:100%; padding:6px;">
-                    <option value="21" ${renglon.porcentajeIva === 21 ? 'selected' : ''}>21%</option>
-                    <option value="10.5" ${renglon.porcentajeIva === 10.5 ? 'selected' : ''}>10.5%</option>
-                    <option value="0" ${renglon.porcentajeIva === 0 ? 'selected' : ''}>0%</option>
-                </select>
-            </td>
-            <td class="texto-derecha celda-sub">$${netoFila.toFixed(2)}</td>
-            <td class="texto-centro">
-                <button type="button" class="btn-chico btn-borrar btn-quitar-fila">X</button>
-            </td>
-        `;
+        const crearInput = (
+            valorInicial: number,
+            minimo: number,
+            actualizar: (numero: number) => void,
+            maximo?: number
+        ): void => {
+            const input = document.createElement('input');
 
-        const inArt = tr.querySelector('.in-art') as HTMLInputElement;
-        const inCant = tr.querySelector('.in-cant') as HTMLInputElement;
-        const inPrecio = tr.querySelector('.in-precio') as HTMLInputElement;
-        const inIva = tr.querySelector('.in-iva') as HTMLSelectElement;
-        const celdaSub = tr.querySelector('.celda-sub') as HTMLTableCellElement;
+            input.type = 'number';
+            input.value = String(valorInicial);
+            input.min = String(minimo);
+            input.step = 'any';
+            input.required = true;
 
-        const recalcularFila = () => {
-            renglon.articuloId = Number(inArt.value);
-            renglon.cantidad = Number(inCant.value) || 0;
-            renglon.precioUnitario = Number(inPrecio.value) || 0;
-            renglon.porcentajeIva = Number(inIva.value);
+            if (maximo !== undefined) {
+                input.max = String(maximo);
+            }
 
-            const sub = renglon.cantidad * renglon.precioUnitario;
-            celdaSub.textContent = `$${sub.toFixed(2)}`;
-            calcularTotalesFactura();
+            input.addEventListener('input', () => {
+                actualizar(Number(input.value));
+            });
+
+            fila.insertCell().appendChild(input);
         };
 
-        inArt.addEventListener('input', recalcularFila);
-        inCant.addEventListener('input', recalcularFila);
-        inPrecio.addEventListener('input', recalcularFila);
-        inIva.addEventListener('change', recalcularFila);
+        crearInput(renglon.articuloId, 1, n => renglon.articuloId = n);
+        crearInput(renglon.cantidad, 0.01, n => renglon.cantidad = n);
 
-        tr.querySelector('.btn-quitar-fila')?.addEventListener('click', () => {
-            renglones.splice(idx, 1);
+        crearInput(
+            renglon.porcentajeBonificacion ?? 0,
+            0,
+            n => renglon.porcentajeBonificacion = n,
+            100
+        );
+
+        const quitar = document.createElement('button');
+        quitar.type = 'button';
+        quitar.textContent = 'X';
+        quitar.className = 'btn-chico btn-borrar';
+
+        quitar.addEventListener('click', () => {
+            renglones.splice(indice, 1);
             dibujarRenglones();
         });
 
-        tbodyRenglones.appendChild(tr);
+        fila.insertCell().appendChild(quitar);
     });
-
-    calcularTotalesFactura();
 }
 
-function calcularTotalesFactura(): void {
-    let acumNeto = 0;
-    let acumIva = 0;
+function mostrarAlta(): void {
+    elemento('seccionListado').classList.add('oculto');
+    elemento('seccionAlta').classList.remove('oculto');
+    elemento('tabListado').classList.remove('activo');
+    elemento('tabNueva').classList.add('activo');
 
-    renglones.forEach(r => {
-        const subNeto = r.cantidad * r.precioUnitario;
-        const montoIva = subNeto * ((r.porcentajeIva ?? 21) / 100);
-        acumNeto += subNeto;
-        acumIva += montoIva;
-    });
+    elemento<HTMLFormElement>('formAltaFactura').reset();
 
-    const total = acumNeto + acumIva;
-
-    (document.getElementById('txtNeto') as HTMLElement).textContent = `$${acumNeto.toFixed(2)}`;
-    (document.getElementById('txtIva') as HTMLElement).textContent = `$${acumIva.toFixed(2)}`;
-    (document.getElementById('txtTotal') as HTMLElement).textContent = `$${total.toFixed(2)}`;
+    renglones = [];
+    agregarRenglon();
 }
 
-async function enviarNuevaFactura(e: Event): Promise<void> {
-    e.preventDefault();
+async function mostrarListado(): Promise<void> {
+    elemento('seccionAlta').classList.add('oculto');
+    elemento('seccionListado').classList.remove('oculto');
+    elemento('tabNueva').classList.remove('activo');
+    elemento('tabListado').classList.add('activo');
 
+    await cargarListado();
+}
+
+async function guardarFactura(): Promise<void> {
     if (renglones.length === 0) {
-        alert('Tenés que cargar al menos un renglón en la factura.');
-        return;
+        throw new Error('Agregá al menos un renglón.');
     }
 
+    for (const renglon of renglones) {
+        if (!Number.isInteger(renglon.articuloId)
+            || renglon.articuloId <= 0) {
+            throw new Error('Los ID de artículo deben ser enteros positivos.');
+        }
+    }
+
+    configurarOperacion(numeroCampo('inputNumero'));
+
     const dto: FacturaRequestDTO = {
-        numeroComprobante: (document.getElementById('inputNumero') as HTMLInputElement).value,
-        fechaEmision: (document.getElementById('inputFecha') as HTMLInputElement).value,
-        puntoVentaId: Number((document.getElementById('inputPuntoVenta') as HTMLInputElement).value),
-        clienteId: Number((document.getElementById('inputCliente') as HTMLInputElement).value),
-        condicionIvaId: Number((document.getElementById('inputCondicionIva') as HTMLInputElement).value),
-        tipoMonedaId: Number((document.getElementById('inputMoneda') as HTMLInputElement).value),
-        observaciones: (document.getElementById('inputObservaciones') as HTMLInputElement).value,
+        clienteId: numeroCampo('inputCliente'),
+        condicionIvaId: numeroCampo('inputCondicionIva'),
+        tipoMonedaId: numeroCampo('inputMoneda'),
+        puntoVentaId: numeroCampo('inputPuntoVenta'),
         detalles: renglones
     };
 
-    try {
-        await api.crearFactura(dto);
-        alert('Factura registrada correctamente.');
-        irAListado();
-    } catch (err) {
-        console.error(err);
-        alert('Hubo un problema al guardar la factura. Revisá que existan los IDs cargados en la base de datos.');
-    }
+    const creada = await api.crearFactura(dto);
+
+    alert(
+        `Factura ${creada.numeroFactura} creada. ` +
+        `Total: $${creada.importeTotal.toFixed(2)}`
+    );
+
+    await mostrarListado();
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    elemento('tabNueva').addEventListener('click', mostrarAlta);
+
+    for (const id of ['tabListado', 'btnVolver', 'btnCancelarAlta']) {
+        elemento(id).addEventListener('click', () => {
+            void ejecutar(mostrarListado);
+        });
+    }
+
+    elemento('btnSumarRenglon').addEventListener('click', agregarRenglon);
+
+    elemento('btnAplicarFiltros').addEventListener('click', () => {
+        void ejecutar(cargarListado);
+    });
+
+    elemento('btnLimpiarFiltros').addEventListener('click', () => {
+        for (const id of [
+            'txtFiltroNumero',
+            'txtFiltroCliente',
+            'txtFiltroIva',
+            'selFiltroEstado',
+            'txtFechaDesde',
+            'txtFechaHasta'
+        ]) {
+            elemento<HTMLInputElement>(id).value = '';
+        }
+
+        void ejecutar(cargarListado);
+    });
+
+    elemento<HTMLFormElement>('formAltaFactura')
+        .addEventListener('submit', evento => {
+            evento.preventDefault();
+            void ejecutar(guardarFactura);
+        });
+
+    void ejecutar(cargarListado);
+});

@@ -1,63 +1,157 @@
-import {
+import type {
     FacturaFiltrosDTO,
     FacturaReporteDTO,
     FacturaRequestDTO
 } from '../models/factura.dto.js';
 
 export class FacturaService {
-    private readonly baseUrl: string = 'http://localhost:8080/api/facturas';
+    private readonly baseUrl = 'http://localhost:8080/api/facturas';
 
-    async obtenerFacturas(filtros?: FacturaFiltrosDTO): Promise<FacturaReporteDTO[]> {
-        const params = new URLSearchParams();
-        if (filtros?.cliente) params.append('cliente', filtros.cliente);
-        if (filtros?.estado) params.append('estado', filtros.estado);
-        if (filtros?.numeroComprobante) params.append('numeroComprobante', filtros.numeroComprobante);
-        if (filtros?.condicionIva) params.append('condicionIva', filtros.condicionIva);
-        if (filtros?.fechaDesde) params.append('fechaDesde', filtros.fechaDesde);
-        if (filtros?.fechaHasta) params.append('fechaHasta', filtros.fechaHasta);
+    private usuarioId?: number;
+    private porcentajeIva?: number;
+    private numero?: number;
 
-        const query = params.toString() ? `?${params.toString()}` : '';
-        const response = await fetch(`${this.baseUrl}${query}`);
-
-        if (!response.ok) {
-            throw new Error(`Error al obtener facturas: ${response.status}`);
+    configurar(
+        usuarioId: number,
+        porcentajeIva: number,
+        numero?: number
+    ): void {
+        if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+            throw new Error('Ingresá un ID de usuario válido.');
         }
-        return await response.json();
+
+        if (!Number.isFinite(porcentajeIva) || porcentajeIva < 0) {
+            throw new Error('Ingresá un porcentaje de IVA válido.');
+        }
+
+        if (numero !== undefined
+            && (!Number.isInteger(numero) || numero <= 0)) {
+            throw new Error('Ingresá un número de factura válido.');
+        }
+
+        this.usuarioId = usuarioId;
+        this.porcentajeIva = porcentajeIva;
+        this.numero = numero;
     }
 
-    async crearFactura(factura: FacturaRequestDTO): Promise<FacturaReporteDTO> {
-        const response = await fetch(this.baseUrl, {
+    async obtenerFacturas(
+        filtros: FacturaFiltrosDTO = {}
+    ): Promise<FacturaReporteDTO[]> {
+        const response = await fetch(this.baseUrl);
+        await this.comprobarRespuesta(response);
+
+        const facturas: FacturaReporteDTO[] = await response.json();
+
+        // En esta versión, los filtros se aplican en el frontend.
+        return facturas.filter(f => {
+            const contiene = (valor: string, filtro?: string): boolean =>
+                !filtro || valor.toLowerCase().includes(
+                    filtro.trim().toLowerCase()
+                );
+
+            const fecha = f.fechaEmision.slice(0, 10);
+
+            return contiene(String(f.numeroFactura), filtros.numeroFactura)
+                && contiene(f.clienteDenominacion, filtros.cliente)
+                && contiene(f.condicionIva, filtros.condicionIva)
+                && (!filtros.estado || f.estado === filtros.estado)
+                && (!filtros.fechaDesde || fecha >= filtros.fechaDesde)
+                && (!filtros.fechaHasta || fecha <= filtros.fechaHasta);
+        });
+    }
+
+    async crearFactura(
+        factura: FacturaRequestDTO
+    ): Promise<FacturaReporteDTO> {
+        const params = this.parametrosUsuario();
+
+        if (this.numero === undefined || this.porcentajeIva === undefined) {
+            throw new Error('Falta configurar número o IVA.');
+        }
+
+        params.set('numero', String(this.numero));
+        params.set('porcentajeIva', String(this.porcentajeIva));
+
+        const response = await fetch(`${this.baseUrl}?${params}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(factura)
         });
 
-        if (!response.ok) {
-            throw new Error(`Error al crear la factura: ${response.status}`);
-        }
+        await this.comprobarRespuesta(response);
         return await response.json();
     }
 
-    async actualizarEstado(id: number, estado: string, observaciones?: string): Promise<FacturaReporteDTO> {
-        const response = await fetch(`${this.baseUrl}/${id}`, {
+    async actualizarFactura(
+        id: number,
+        factura: FacturaRequestDTO
+    ): Promise<FacturaReporteDTO> {
+        const params = this.parametrosUsuario();
+
+        if (this.porcentajeIva === undefined) {
+            throw new Error('Falta configurar el IVA.');
+        }
+
+        params.set('porcentajeIva', String(this.porcentajeIva));
+
+        const response = await fetch(`${this.baseUrl}/${id}?${params}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ estado, observaciones })
+            body: JSON.stringify(factura)
         });
 
-        if (!response.ok) {
-            throw new Error(`Error al actualizar estado: ${response.status}`);
-        }
+        await this.comprobarRespuesta(response);
+        return await response.json();
+    }
+
+    async actualizarEstado(
+        id: number,
+        estado: string,
+        observaciones?: string
+    ): Promise<FacturaReporteDTO> {
+        const params = this.parametrosUsuario();
+
+        const response = await fetch(
+            `${this.baseUrl}/${id}/estado?${params}`,
+            {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    estado,
+                    observaciones: observaciones ?? null
+                })
+            }
+        );
+
+        await this.comprobarRespuesta(response);
         return await response.json();
     }
 
     async eliminarFactura(id: number): Promise<void> {
-        const response = await fetch(`${this.baseUrl}/${id}`, {
+        const params = this.parametrosUsuario();
+
+        const response = await fetch(`${this.baseUrl}/${id}?${params}`, {
             method: 'DELETE'
         });
 
+        await this.comprobarRespuesta(response);
+    }
+
+    private parametrosUsuario(): URLSearchParams {
+        if (this.usuarioId === undefined) {
+            throw new Error('Falta configurar el usuario.');
+        }
+
+        return new URLSearchParams({
+            usuarioId: String(this.usuarioId)
+        });
+    }
+
+    private async comprobarRespuesta(response: Response): Promise<void> {
         if (!response.ok) {
-            throw new Error(`Error al eliminar la factura: ${response.status}`);
+            throw new Error(
+                `La API respondió ${response.status}: ${await response.text()}`
+            );
         }
     }
 }
