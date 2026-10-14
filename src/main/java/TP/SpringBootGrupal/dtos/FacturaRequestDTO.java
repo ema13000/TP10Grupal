@@ -1,4 +1,11 @@
 package TP.SpringBootGrupal.dtos;
 
-public record FacturaRequestDTO() {
+import java.util.List;
+
+public record FacturaRequestDTO(
+        Long clienteId,
+        Long condicionIvaId,
+        Long tipoMonedaId,
+        Long puntoVentaId,
+        List<FacturaDetalleRequestDTO> detalles) {
 }
