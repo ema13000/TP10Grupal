@@ -127,12 +127,8 @@ public class FacturaServiceImpl implements FacturaService {
     @Transactional
     public void delete(Long id, Long usuarioId) {
 
-        FacturaVenta factura = facturaVentaRepository.findById(id)
-                .orElseThrow(() -> new RecursoNoEncontradoException(
-                        "No existe la factura con ID " + id
-                ));
+        FacturaVenta factura = facturaVentaRepository.findById(id).orElseThrow(() -> new RecursoNoEncontradoException("No existe la factura con ID " + id));
 
-        // Repetir la baja no cambia sus fechas ni su usuario original.
         if (!estaActiva(factura)) {
             return;
         }
@@ -154,15 +150,9 @@ public class FacturaServiceImpl implements FacturaService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<FacturaReporteDTO> findByListaPrecioArticulo(
-            Long idListaPrecioArticulo
-    ) {
+    public List<FacturaReporteDTO> findByListaPrecioArticulo(Long idListaPrecioArticulo) {
 
-        if (!listaPrecioArticuloRepository.existsById(idListaPrecioArticulo)) {
-            throw new RecursoNoEncontradoException(
-                    "No existe ListaPrecioArticulo con ID "
-                            + idListaPrecioArticulo
-            );
+        if (!listaPrecioArticuloRepository.existsById(idListaPrecioArticulo)) {throw new RecursoNoEncontradoException("No existe ListaPrecioArticulo con ID " + idListaPrecioArticulo);
         }
 
         List<FacturaReporteDTO> resultado = new ArrayList<>();
@@ -175,8 +165,7 @@ public class FacturaServiceImpl implements FacturaService {
             for (FacturaVentaDetalle detalle : factura.getDetalles()) {
                 Long precioId = detalle.getListaPrecioArticulo().getId();
 
-                if (idListaPrecioArticulo.equals(precioId)) {
-                    resultado.add(FacturaReporteDTO.toDTO(factura));
+                if (idListaPrecioArticulo.equals(precioId)) {resultado.add(FacturaReporteDTO.toDTO(factura));
                     break;
                 }
             }
