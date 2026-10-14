@@ -53,9 +53,11 @@ public class FacturaServiceImpl implements FacturaService {
             Long usuarioId,
             double porcentajeIva
     ) {
-        validarId(numero, "Número de factura");
 
-        Usuario usuario = buscarUsuario(usuarioId);
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe el usuario con ID " + usuarioId
+                ));
         Date ahora = new Date();
 
         FacturaVenta factura = new FacturaVenta();
@@ -124,7 +126,6 @@ public class FacturaServiceImpl implements FacturaService {
     @Override
     @Transactional
     public void delete(Long id, Long usuarioId) {
-        validarId(id, "Factura");
 
         FacturaVenta factura = facturaVentaRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException(
@@ -156,7 +157,6 @@ public class FacturaServiceImpl implements FacturaService {
     public List<FacturaReporteDTO> findByListaPrecioArticulo(
             Long idListaPrecioArticulo
     ) {
-        validarId(idListaPrecioArticulo, "ListaPrecioArticulo");
 
         if (!listaPrecioArticuloRepository.existsById(idListaPrecioArticulo)) {
             throw new RecursoNoEncontradoException(
@@ -212,17 +212,12 @@ public class FacturaServiceImpl implements FacturaService {
 
         // La relación con Cliente admite null en tu entidad.
         if (dto.clienteId() != null) {
-            validarId(dto.clienteId(), "Cliente");
 
             cliente = clienteRepository.findById(dto.clienteId())
                     .orElseThrow(() -> new RecursoNoEncontradoException(
                             "No existe el cliente"
                     ));
         }
-
-        validarId(dto.condicionIvaId(), "CondicionIva");
-        validarId(dto.tipoMonedaId(), "TipoMoneda");
-        validarId(dto.puntoVentaId(), "PuntoVenta");
 
         CondicionIva condicionIva = condicionIvaRepository
                 .findById(dto.condicionIvaId())
@@ -287,8 +282,6 @@ public class FacturaServiceImpl implements FacturaService {
                     "Un detalle no puede ser null"
             );
         }
-
-        validarId(dto.articuloId(), "Artículo");
 
         if (dto.cantidad() == null
                 || !Double.isFinite(dto.cantidad())
@@ -383,7 +376,6 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     private FacturaVenta buscarFacturaActiva(Long id) {
-        validarId(id, "Factura");
 
         FacturaVenta factura = facturaVentaRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException(
@@ -400,7 +392,6 @@ public class FacturaServiceImpl implements FacturaService {
     }
 
     private Usuario buscarUsuario(Long id) {
-        validarId(id, "Usuario");
 
         return usuarioRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException(
@@ -413,13 +404,6 @@ public class FacturaServiceImpl implements FacturaService {
                 && !"ANULADA".equals(factura.getEstado());
     }
 
-    private void validarId(Long id, String concepto) {
-        if (id == null || id <= 0) {
-            throw new IllegalArgumentException(
-                    concepto + ": el identificador debe ser positivo"
-            );
-        }
-    }
 
     private BigDecimal redondear(BigDecimal importe) {
         return importe.setScale(2, RoundingMode.HALF_UP);
