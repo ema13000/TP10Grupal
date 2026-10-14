@@ -24,8 +24,14 @@ public class FacturaRestController {
     }
 
     @PostMapping
-    public ResponseEntity<FacturaReporteDTO> save(@Valid @RequestBody FacturaRequestDTO dto) {
-        FacturaReporteDTO creada = service.crear(dto);
+    public ResponseEntity<FacturaReporteDTO> save(
+            @RequestBody FacturaRequestDTO dto,
+            @RequestParam("numero") Long numero,
+            @RequestParam("usuarioId") Long usuarioId,
+            @RequestParam("porcentajeIva") double porcentajeIva
+    ) {
+        FacturaReporteDTO creada = service.save(dto, numero, usuarioId, porcentajeIva);
+
         return ResponseEntity.status(HttpStatus.CREATED).body(creada);
     }
 
@@ -43,8 +49,12 @@ public class FacturaRestController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        service.eliminar(id);
+    public ResponseEntity<Void> delete(
+            @PathVariable("id") Long id,
+            @RequestParam("usuarioId") Long usuarioId
+    ) {
+        service.delete(id, usuarioId);
+
         return ResponseEntity.noContent().build();
     }
 }

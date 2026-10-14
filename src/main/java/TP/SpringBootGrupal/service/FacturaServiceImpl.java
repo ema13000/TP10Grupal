@@ -199,7 +199,6 @@ public class FacturaServiceImpl implements FacturaService {
 
         Cliente cliente = null;
 
-        // La relación con Cliente admite null en tu entidad.
         if (dto.clienteId() != null) {
 
             cliente = clienteRepository.findById(dto.clienteId())
