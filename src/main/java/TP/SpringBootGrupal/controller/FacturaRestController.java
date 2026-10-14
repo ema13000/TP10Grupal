@@ -23,6 +23,16 @@ public class FacturaRestController {
         this.service = facturaServiceImpl;
     }
 
+    @GetMapping
+    public ResponseEntity<List<FacturaReporteDTO>> findAll() {
+        return ResponseEntity.ok(service.findAll());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<FacturaReporteDTO> findById(@PathVariable Long id) {
+        return ResponseEntity.ok(service.findById(id));
+    }
+
     @PostMapping
     public ResponseEntity<FacturaReporteDTO> save(
             @RequestBody FacturaRequestDTO dto,
