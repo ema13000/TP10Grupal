@@ -1,5 +1,6 @@
 package TP.SpringBootGrupal.dtos.Factura;
 
+import TP.SpringBootGrupal.entities.FacturaVenta;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,5 +19,21 @@ public class FacturaReporteDTO {
     String puntoVentaDescripcion;
     double importeTotal;
     long cantidadItems;
+
+    public static FacturaReporteDTO toDTO(FacturaVenta factura) {
+        String cliente = factura.getCliente() == null
+                ? "Consumidor Final"
+                : factura.getCliente().getDenominacion();
+
+        return new FacturaReporteDTO(
+                factura.getNumero(),
+                factura.getFechaEmision(),
+                cliente,
+                factura.getCondicionIva().getDenominacion(),
+                factura.getPuntoVenta().getDescripcion(),
+                factura.getImporteTotal(),
+                factura.getDetalles().size()
+        );
+    }
 }
 

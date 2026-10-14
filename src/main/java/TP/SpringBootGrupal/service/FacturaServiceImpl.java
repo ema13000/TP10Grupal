@@ -1,217 +1,427 @@
 package TP.SpringBootGrupal.service;
 
+import TP.SpringBootGrupal.Exceptions.RecursoNoEncontradoException;
 import TP.SpringBootGrupal.dtos.Factura.FacturaReporteDTO;
-import TP.SpringBootGrupal.repository.FacturaVentaRepository;
-import com.lowagie.text.Document;
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.TypedQuery;
+import TP.SpringBootGrupal.dtos.Factura.FacturaRequestDTO;
+import TP.SpringBootGrupal.dtos.FacturaDetalle.FacturaDetalleRequestDTO;
+import TP.SpringBootGrupal.entities.*;
+import TP.SpringBootGrupal.repository.*;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 
 @Service
 public class FacturaServiceImpl implements FacturaService {
 
     private final FacturaVentaRepository facturaVentaRepository;
+    private final ClienteRepository clienteRepository;
+    private final CondicionIvaRepository condicionIvaRepository;
+    private final TipoMonedaRepository tipoMonedaRepository;
+    private final PuntoVentaRepository puntoVentaRepository;
+    private final ListaPrecioArticuloRepository listaPrecioArticuloRepository;
+    private final UsuarioRepository usuarioRepository;
 
-    @PersistenceContext
-    private EntityManager em;
-
-    private static final String[] CABECERAS = {
-            "Factura", "Fecha", "Cliente", "Condición IVA",
-            "Punto de venta", "Importe total", "Cantidad de ítems"
-    };
-
-    public FacturaServiceImpl(FacturaVentaRepository facturaVentaRepository) {
-        this.facturaVentaRepository = facturaVentaRepository;
-    }
-
-    @Transactional(readOnly = true)
-    public List<FacturaReporteDTO> buscarFacturasFiltradas(
-            Date fechaDesde,
-            Date fechaHasta,
-            String estado,
-            Double montoMinimo
+    public FacturaServiceImpl(
+            FacturaVentaRepository facturaVentaRepository,
+            ClienteRepository clienteRepository,
+            CondicionIvaRepository condicionIvaRepository,
+            TipoMonedaRepository tipoMonedaRepository,
+            PuntoVentaRepository puntoVentaRepository,
+            ListaPrecioArticuloRepository listaPrecioArticuloRepository,
+            UsuarioRepository usuarioRepository
     ) {
-        StringBuilder jpql = new StringBuilder("""
-                SELECT new TP.SpringBootGrupal.dtos.FacturaReporteDTO(
-                    f.numero,
-                    f.fechaEmision,
-                    COALESCE(c.denominacion, 'Consumidor Final'),
-                    ci.denominacion,
-                    pv.descripcion,
-                    f.importeTotal,
-                    COUNT(d)
-                )
-                FROM FacturaVenta f
-                LEFT JOIN f.cliente c
-                JOIN f.condicionIva ci
-                JOIN f.puntoVenta pv
-                JOIN f.detalles d
-                WHERE 1 = 1
-                """);
-
-        Map<String, Object> parametros = new HashMap<>();
-
-        if (fechaDesde != null) {
-            jpql.append(" AND f.fechaEmision >= :fechaDesde");
-            parametros.put("fechaDesde", fechaDesde);
-        }
-
-        if (fechaHasta != null) {
-            jpql.append(" AND f.fechaEmision <= :fechaHasta");
-            parametros.put("fechaHasta", fechaHasta);
-        }
-
-        if (estado != null && !estado.isBlank()) {
-            jpql.append(" AND f.estado = :estado");
-            parametros.put("estado", estado.trim());
-        }
-
-        if (montoMinimo != null) {
-            jpql.append(" AND f.importeTotal >= :montoMinimo");
-            parametros.put("montoMinimo", montoMinimo);
-        }
-
-        jpql.append("""
-                 GROUP BY f.id, f.numero, f.fechaEmision,
-                    c.denominacion, ci.denominacion,
-                    pv.descripcion, f.importeTotal
-                 ORDER BY f.numero
-                """);
-
-        TypedQuery<FacturaReporteDTO> consulta =
-                em.createQuery(jpql.toString(), FacturaReporteDTO.class);
-
-        parametros.forEach(consulta::setParameter);
-
-        return consulta.getResultList();
+        this.facturaVentaRepository = facturaVentaRepository;
+        this.clienteRepository = clienteRepository;
+        this.condicionIvaRepository = condicionIvaRepository;
+        this.tipoMonedaRepository = tipoMonedaRepository;
+        this.puntoVentaRepository = puntoVentaRepository;
+        this.listaPrecioArticuloRepository = listaPrecioArticuloRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
-    public byte[] generarPdf(List<FacturaReporteDTO> facturas)
-            throws DocumentException {
+    @Override
+    @Transactional
+    public FacturaReporteDTO save(
+            FacturaRequestDTO dto,
+            Long numero,
+            Long usuarioId,
+            double porcentajeIva
+    ) {
+        validarId(numero, "Número de factura");
 
-        ByteArrayOutputStream salida = new ByteArrayOutputStream();
-        Document documento = new Document(PageSize.A4.rotate());
+        Usuario usuario = buscarUsuario(usuarioId);
+        Date ahora = new Date();
 
-        PdfWriter.getInstance(documento, salida);
-        documento.open();
+        FacturaVenta factura = new FacturaVenta();
 
-        try {
-            documento.add(new Paragraph("Reporte de facturas"));
-            documento.add(new Paragraph(" "));
+        factura.setNumero(numero);
+        factura.setFechaEmision(ahora);
+        factura.setEstado("PENDIENTE");
+        factura.setImporteCobrado(0);
 
-            PdfPTable tabla = new PdfPTable(CABECERAS.length);
-            tabla.setWidthPercentage(100);
+        factura.setFechaAlta(ahora);
+        factura.setFechaModificacion(ahora);
+        factura.setUsuarioCarga(usuario);
+        factura.setUsuarioModificacion(usuario);
 
-            for (String cabecera : CABECERAS) {
-                tabla.addCell(cabecera);
+        aplicarDatos(dto, factura, porcentajeIva);
+
+        factura = facturaVentaRepository.save(factura);
+
+        return FacturaReporteDTO.toDTO(factura);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FacturaReporteDTO> findAll() {
+        List<FacturaVenta> facturas = facturaVentaRepository.findAll();
+        List<FacturaReporteDTO> resultado = new ArrayList<>();
+
+        for (FacturaVenta factura : facturas) {
+            if (estaActiva(factura)) {
+                resultado.add(FacturaReporteDTO.toDTO(factura));
             }
+        }
 
-            tabla.setHeaderRows(1);
+        return resultado;
+    }
 
-            SimpleDateFormat formatoFecha =
-                    new SimpleDateFormat("yyyy-MM-dd");
+    @Override
+    @Transactional(readOnly = true)
+    public FacturaReporteDTO findById(Long id) {
+        FacturaVenta factura = buscarFacturaActiva(id);
 
-            for (FacturaReporteDTO factura : facturas) {
-                tabla.addCell(texto(factura.getNumeroFactura()));
+        return FacturaReporteDTO.toDTO(factura);
+    }
 
-                tabla.addCell(
-                        factura.getFechaEmision() == null
-                                ? ""
-                                : formatoFecha.format(factura.getFechaEmision())
-                );
+    @Override
+    @Transactional
+    public FacturaReporteDTO update(
+            FacturaRequestDTO dto,
+            Long id,
+            Long usuarioId,
+            double porcentajeIva
+    ) {
+        FacturaVenta factura = buscarFacturaActiva(id);
+        Usuario usuario = buscarUsuario(usuarioId);
 
-                tabla.addCell(texto(factura.getClienteDenominacion()));
-                tabla.addCell(texto(factura.getCondicionIva()));
-                tabla.addCell(texto(factura.getPuntoVentaDescripcion()));
+        aplicarDatos(dto, factura, porcentajeIva);
 
-                tabla.addCell(String.format(
-                        Locale.forLanguageTag("es-AR"),
-                        "%.2f",
-                        factura.getImporteTotal()
+        factura.setFechaModificacion(new Date());
+        factura.setUsuarioModificacion(usuario);
+
+        factura = facturaVentaRepository.save(factura);
+
+        return FacturaReporteDTO.toDTO(factura);
+    }
+
+    @Override
+    @Transactional
+    public void delete(Long id, Long usuarioId) {
+        validarId(id, "Factura");
+
+        FacturaVenta factura = facturaVentaRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe la factura con ID " + id
                 ));
 
-                tabla.addCell(
-                        String.valueOf(factura.getCantidadItems())
-                );
-            }
-
-            documento.add(tabla);
-
-            if (facturas.isEmpty()) {
-                documento.add(
-                        new Paragraph("No se encontraron facturas.")
-                );
-            }
-        } finally {
-            documento.close();
+        // Repetir la baja no cambia sus fechas ni su usuario original.
+        if (!estaActiva(factura)) {
+            return;
         }
 
-        return salida.toByteArray();
+        Usuario usuario = buscarUsuario(usuarioId);
+        Date ahora = new Date();
+
+        factura.setEstado("ANULADA");
+        factura.setFechaAnulacion(ahora);
+
+        factura.setFechaBaja(ahora);
+        factura.setUsuarioBaja(usuario);
+
+        factura.setFechaModificacion(ahora);
+        factura.setUsuarioModificacion(usuario);
+
+        facturaVentaRepository.save(factura);
     }
 
-    public byte[] generarExcel(List<FacturaReporteDTO> facturas) {
-        StringBuilder contenido = new StringBuilder();
+    @Override
+    @Transactional(readOnly = true)
+    public List<FacturaReporteDTO> findByListaPrecioArticulo(
+            Long idListaPrecioArticulo
+    ) {
+        validarId(idListaPrecioArticulo, "ListaPrecioArticulo");
 
-        // Primera fila: nombres de las columnas.
-        contenido.append(String.join("\t", CABECERAS))
-                .append("\r\n");
-
-        SimpleDateFormat formatoFecha =
-                new SimpleDateFormat("yyyy-MM-dd");
-
-        // Una fila por factura.
-        for (FacturaReporteDTO factura : facturas) {
-            String fecha = factura.getFechaEmision() == null
-                    ? ""
-                    : formatoFecha.format(factura.getFechaEmision());
-
-            contenido.append(textoCelda(factura.getNumeroFactura()))
-                    .append("\t")
-                    .append(fecha)
-                    .append("\t")
-                    .append(textoCelda(factura.getClienteDenominacion()))
-                    .append("\t")
-                    .append(textoCelda(factura.getCondicionIva()))
-                    .append("\t")
-                    .append(textoCelda(factura.getPuntoVentaDescripcion()))
-                    .append("\t")
-                    .append(String.format(
-                            Locale.forLanguageTag("es-AR"),
-                            "%.2f",
-                            factura.getImporteTotal()
-                    ))
-                    .append("\t")
-                    .append(factura.getCantidadItems())
-                    .append("\r\n");
+        if (!listaPrecioArticuloRepository.existsById(idListaPrecioArticulo)) {
+            throw new RecursoNoEncontradoException(
+                    "No existe ListaPrecioArticulo con ID "
+                            + idListaPrecioArticulo
+            );
         }
 
-        return contenido.toString().getBytes(StandardCharsets.UTF_8);
+        List<FacturaReporteDTO> resultado = new ArrayList<>();
+
+        for (FacturaVenta factura : facturaVentaRepository.findAll()) {
+            if (!estaActiva(factura)) {
+                continue;
+            }
+
+            for (FacturaVentaDetalle detalle : factura.getDetalles()) {
+                Long precioId = detalle.getListaPrecioArticulo().getId();
+
+                if (idListaPrecioArticulo.equals(precioId)) {
+                    resultado.add(FacturaReporteDTO.toDTO(factura));
+                    break;
+                }
+            }
+        }
+
+        return resultado;
     }
 
-    private static String textoCelda(Object valor) {
-        return texto(valor)
-                .replace('\t', ' ')
-                .replace('\r', ' ')
-                .replace('\n', ' ');
+    private void aplicarDatos(
+            FacturaRequestDTO dto,
+            FacturaVenta factura,
+            double porcentajeIva
+    ) {
+        if (dto == null) {
+            throw new IllegalArgumentException(
+                    "Los datos de la factura son obligatorios"
+            );
+        }
+
+        if (dto.detalles() == null || dto.detalles().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "La factura debe tener al menos un detalle"
+            );
+        }
+
+        if (!Double.isFinite(porcentajeIva) || porcentajeIva < 0) {
+            throw new IllegalArgumentException(
+                    "El porcentaje de IVA debe ser un número no negativo"
+            );
+        }
+
+        Cliente cliente = null;
+
+        // La relación con Cliente admite null en tu entidad.
+        if (dto.clienteId() != null) {
+            validarId(dto.clienteId(), "Cliente");
+
+            cliente = clienteRepository.findById(dto.clienteId())
+                    .orElseThrow(() -> new RecursoNoEncontradoException(
+                            "No existe el cliente"
+                    ));
+        }
+
+        validarId(dto.condicionIvaId(), "CondicionIva");
+        validarId(dto.tipoMonedaId(), "TipoMoneda");
+        validarId(dto.puntoVentaId(), "PuntoVenta");
+
+        CondicionIva condicionIva = condicionIvaRepository
+                .findById(dto.condicionIvaId())
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe la condición de IVA"
+                ));
+
+        TipoMoneda tipoMoneda = tipoMonedaRepository
+                .findById(dto.tipoMonedaId())
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe el tipo de moneda"
+                ));
+
+        PuntoVenta puntoVenta = puntoVentaRepository
+                .findById(dto.puntoVentaId())
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe el punto de venta"
+                ));
+
+        List<FacturaVentaDetalle> nuevosDetalles = new ArrayList<>();
+        BigDecimal total = BigDecimal.ZERO;
+
+        for (FacturaDetalleRequestDTO detalleDto : dto.detalles()) {
+            FacturaVentaDetalle detalle = crearDetalle(
+                    detalleDto,
+                    factura,
+                    porcentajeIva
+            );
+
+            nuevosDetalles.add(detalle);
+
+            total = total.add(
+                    BigDecimal.valueOf(detalle.getImporteSubtotal())
+            );
+        }
+
+        factura.setCliente(cliente);
+        factura.setCondicionIva(condicionIva);
+        factura.setTipoMoneda(tipoMoneda);
+        factura.setPuntoVenta(puntoVenta);
+
+        // Se conserva la colección administrada por JPA.
+        factura.getDetalles().clear();
+        factura.getDetalles().addAll(nuevosDetalles);
+
+        factura.setImporteTotal(total.doubleValue());
+
+        BigDecimal saldo = total.subtract(
+                BigDecimal.valueOf(factura.getImporteCobrado())
+        );
+
+        factura.setImporteSaldo(redondear(saldo).doubleValue());
     }
 
-    private static String texto(Object valor) {
-        return valor == null ? "" : valor.toString();
+    private FacturaVentaDetalle crearDetalle(
+            FacturaDetalleRequestDTO dto,
+            FacturaVenta factura,
+            double porcentajeIva
+    ) {
+        if (dto == null) {
+            throw new IllegalArgumentException(
+                    "Un detalle no puede ser null"
+            );
+        }
+
+        validarId(dto.articuloId(), "Artículo");
+
+        if (dto.cantidad() == null
+                || !Double.isFinite(dto.cantidad())
+                || dto.cantidad() <= 0) {
+            throw new IllegalArgumentException(
+                    "La cantidad debe ser mayor que cero"
+            );
+        }
+
+        double bonificacion = dto.porcentajeBonificacion() == null
+                ? 0
+                : dto.porcentajeBonificacion();
+
+        if (!Double.isFinite(bonificacion)
+                || bonificacion < 0
+                || bonificacion > 100) {
+            throw new IllegalArgumentException(
+                    "La bonificación debe estar entre 0 y 100"
+            );
+        }
+
+        ListaPrecioArticulo precio = buscarPrecio(dto.articuloId());
+
+        if (!Double.isFinite(precio.getPrecioVenta())
+                || precio.getPrecioVenta() < 0) {
+            throw new IllegalArgumentException(
+                    "El precio del artículo es inválido"
+            );
+        }
+
+        BigDecimal bruto = BigDecimal.valueOf(dto.cantidad())
+                .multiply(BigDecimal.valueOf(precio.getPrecioVenta()));
+
+        BigDecimal factorBonificacion = BigDecimal.ONE.subtract(
+                BigDecimal.valueOf(bonificacion).movePointLeft(2)
+        );
+
+        BigDecimal neto = redondear(
+                bruto.multiply(factorBonificacion)
+        );
+
+        BigDecimal iva = redondear(
+                neto.multiply(
+                        BigDecimal.valueOf(porcentajeIva).movePointLeft(2)
+                )
+        );
+
+        BigDecimal subtotal = neto.add(iva);
+
+        FacturaVentaDetalle detalle = new FacturaVentaDetalle();
+
+        detalle.setFactura(factura);
+        detalle.setListaPrecioArticulo(precio);
+        detalle.setDescripcion(precio.getArticulo().getDenominacion());
+
+        detalle.setCantidad(dto.cantidad());
+        detalle.setPrecioUnitario(precio.getPrecioVenta());
+        detalle.setPorcentajeBonificacion(bonificacion);
+
+        detalle.setImporteNeto(neto.doubleValue());
+        detalle.setImporteIva(iva.doubleValue());
+        detalle.setImporteSubtotal(subtotal.doubleValue());
+
+        return detalle;
+    }
+
+    private ListaPrecioArticulo buscarPrecio(Long articuloId) {
+        List<ListaPrecioArticulo> precios =
+                listaPrecioArticuloRepository.findByArticulo_Id(articuloId);
+
+        List<ListaPrecioArticulo> activos = new ArrayList<>();
+
+        for (ListaPrecioArticulo precio : precios) {
+            if (precio.getFechaBaja() == null) {
+                activos.add(precio);
+            }
+        }
+
+        if (activos.isEmpty()) {
+            throw new RecursoNoEncontradoException(
+                    "No existe un precio activo para el artículo " + articuloId
+            );
+        }
+
+        if (activos.size() > 1) {
+            throw new IllegalArgumentException(
+                    "El artículo tiene varios precios: debe seleccionarse una lista"
+            );
+        }
+
+        return activos.get(0);
+    }
+
+    private FacturaVenta buscarFacturaActiva(Long id) {
+        validarId(id, "Factura");
+
+        FacturaVenta factura = facturaVentaRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe la factura con ID " + id
+                ));
+
+        if (!estaActiva(factura)) {
+            throw new RecursoNoEncontradoException(
+                    "La factura con ID " + id + " está dada de baja"
+            );
+        }
+
+        return factura;
+    }
+
+    private Usuario buscarUsuario(Long id) {
+        validarId(id, "Usuario");
+
+        return usuarioRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe el usuario con ID " + id
+                ));
+    }
+
+    private boolean estaActiva(FacturaVenta factura) {
+        return factura.getFechaBaja() == null
+                && !"ANULADA".equals(factura.getEstado());
+    }
+
+    private void validarId(Long id, String concepto) {
+        if (id == null || id <= 0) {
+            throw new IllegalArgumentException(
+                    concepto + ": el identificador debe ser positivo"
+            );
+        }
+    }
+
+    private BigDecimal redondear(BigDecimal importe) {
+        return importe.setScale(2, RoundingMode.HALF_UP);
     }
 }
