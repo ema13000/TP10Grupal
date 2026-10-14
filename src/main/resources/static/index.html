@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Facturación</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #eef1f6;
+            color: #2c3e50;
+            line-height: 1.5;
+        }
+
+        .topbar {
+            background-color: #1e293b;
+            color: #ffffff;
+            padding: 14px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid #4f46e5;
+        }
+
+        .topbar h1 {
+            font-size: 1.35rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            color: #cbd5e1;
+            border: 1px solid #475569;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            background-color: #334155;
+            color: #fff;
+        }
+
+        .tab-btn.activo {
+            background-color: #4f46e5;
+            color: #ffffff;
+            border-color: #4f46e5;
+        }
+
+        .contenedor {
+            max-width: 1140px;
+            margin: 28px auto;
+            padding: 0 18px;
+        }
+
+        .panel {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 22px;
+            margin-bottom: 22px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+            border-left: 4px solid #4f46e5;
+        }
+
+        .panel-titulo {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .grilla-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 16px;
+            margin-bottom: 14px;
+        }
+
+        .campo {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .campo label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 5px;
+        }
+
+        .campo input, .campo select {
+            padding: 9px 11px;
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            font-size: 0.92rem;
+            background-color: #f8fafc;
+        }
+
+        .campo input:focus, .campo select:focus {
+            outline: none;
+            border-color: #4f46e5;
+            background-color: #fff;
+        }
+
+        .ayuda-input {
+            font-size: 0.76rem;
+            color: #64748b;
+            margin-top: 3px;
+        }
+
+        .acciones-barra {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        button {
+            font-family: inherit;
+            font-size: 0.9rem;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            border: none;
+            font-weight: 600;
+        }
+
+        .btn-primario {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .btn-primario:hover { background-color: #4338ca; }
+
+        .btn-secundario {
+            background-color: #e2e8f0;
+            color: #334155;
+        }
+        .btn-secundario:hover { background-color: #cbd5e1; }
+
+        .btn-exito {
+            background-color: #0d9488;
+            color: white;
+        }
+        .btn-exito:hover { background-color: #0f766e; }
+
+        .btn-chico {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+
+        .btn-anular {
+            background-color: #f59e0b;
+            color: #fff;
+        }
+        .btn-anular:disabled {
+            background-color: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        .btn-borrar {
+            background-color: #ef4444;
+            color: #fff;
+        }
+
+        .tabla-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 6px;
+        }
+
+        thead th {
+            background-color: #334155;
+            color: #f8fafc;
+            text-align: left;
+            padding: 11px 12px;
+            font-size: 0.86rem;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        tbody td {
+            padding: 11px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.92rem;
+        }
+
+        tbody tr:hover {
+            background-color: #f1f5f9;
+        }
+
+        .texto-derecha { text-align: right; }
+        .texto-centro { text-align: center; }
+
+        .estado-tag {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        .tag-emitida {
+            background-color: #ccfbf1;
+            color: #115e59;
+        }
+        .tag-anulada {
+            background-color: #fee2e2;
+            color: #991b1b;
+            text-decoration: line-through;
+        }
+
+        .resumen-totales {
+            margin-top: 18px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .caja-totales {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 12px 20px;
+            min-width: 280px;
+        }
+
+        .fila-total {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 0.92rem;
+        }
+
+        .fila-total.final {
+            border-top: 2px solid #cbd5e1;
+            padding-top: 8px;
+            margin-top: 6px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #4f46e5;
+        }
+
+        .oculto {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+<header class="topbar">
+    <h1>Sistema de Facturación</h1>
+    <div class="nav-tabs">
+        <button id="tabListado" class="tab-btn activo">Listado de Comprobantes</button>
+        <button id="tabNueva" class="tab-btn">+ Registrar Factura</button>
+    </div>
+</header>
+
+<main class="contenedor">
+    <div id="seccionListado">
+        <div class="panel">
+            <div class="panel-titulo">
+                <span>Filtrar Comprobantes</span>
+            </div>
+
+            <div class="grilla-form">
+                <div class="campo">
+                    <label for="txtFiltroNumero">N° de Comprobante</label>
+                    <input type="text" id="txtFiltroNumero" placeholder="Ej: 0001-00001020">
+                </div>
+                <div class="campo">
+                    <label for="txtFiltroCliente">Cliente</label>
+                    <input type="text" id="txtFiltroCliente" placeholder="Buscar por razón social...">
+                </div>
+                <div class="campo">
+                    <label for="txtFiltroIva">Condición frente al IVA</label>
+                    <input type="text" id="txtFiltroIva" placeholder="Ej: Responsable Inscripto">
+                </div>
+                <div class="campo">
+                    <label for="selFiltroEstado">Estado</label>
+                    <select id="selFiltroEstado">
+                        <option value="">Todos</option>
+                        <option value="EMITIDA">Emitidas</option>
+                        <option value="ANULADA">Anuladas</option>
+                    </select>
+                </div>
+                <div class="campo">
+                    <label for="txtFechaDesde">Fecha Desde</label>
+                    <input type="date" id="txtFechaDesde">
+                </div>
+                <div class="campo">
+                    <label for="txtFechaHasta">Fecha Hasta</label>
+                    <input type="date" id="txtFechaHasta">
+                </div>
+            </div>
+
+            <div class="acciones-barra">
+                <button id="btnAplicarFiltros" class="btn-primario">Aplicar Filtros</button>
+                <button id="btnLimpiarFiltros" class="btn-secundario">Restablecer</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-titulo">
+                <span>Facturas Registradas</span>
+                <small id="contadorFacturas" style="color: #64748b; font-weight: normal;">0 comprobantes</small>
+            </div>
+
+            <div class="tabla-wrapper">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Comprobante</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Cond. IVA</th>
+                        <th>Pto. Venta</th>
+                        <th class="texto-derecha">Neto</th>
+                        <th class="texto-derecha">IVA</th>
+                        <th class="texto-derecha">Total</th>
+                        <th class="texto-centro">Estado</th>
+                        <th class="texto-centro">Operaciones</th>
+                    </tr>
+                    </thead>
+                    <tbody id="tbodyFacturas">
+                    <tr>
+                        <td colspan="10" class="texto-centro">Cargando datos del servidor...</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="seccionAlta" class="oculto">
+        <form id="formAltaFactura">
+            <div class="panel">
+                <div class="panel-titulo">
+                    <span>Cabecera del Comprobante</span>
+                    <button type="button" id="btnVolver" class="btn-secundario btn-chico">← Volver al listado</button>
+                </div>
+
+                <div class="grilla-form">
+                    <div class="campo">
+                        <label for="inputNumero">Número de Factura</label>
+                        <input type="text" id="inputNumero" required>
+                        <span class="ayuda-input">Generado automáticamente (editable)</span>
+                    </div>
+                    <div class="campo">
+                        <label for="inputFecha">Fecha de Emisión</label>
+                        <input type="date" id="inputFecha" required>
+                    </div>
+                    <div class="campo">
+                        <label for="inputPuntoVenta">ID Punto de Venta</label>
+                        <input type="number" id="inputPuntoVenta" value="1" min="1" required>
+                    </div>
+                    <div class="campo">
+                        <label for="inputCliente">ID Cliente</label>
+                        <input type="number" id="inputCliente" placeholder="Ej: 1" min="1" required>
+                    </div>
+                    <div class="campo">
+                        <label for="inputCondicionIva">ID Condición IVA</label>
+                        <input type="number" id="inputCondicionIva" value="1" min="1" required>
+                    </div>
+                    <div class="campo">
+                        <label for="inputMoneda">ID Tipo Moneda</label>
+                        <input type="number" id="inputMoneda" value="1" min="1" required>
+                    </div>
+                </div>
+
+                <div class="campo" style="margin-top: 8px;">
+                    <label for="inputObservaciones">Observaciones del comprobante</label>
+                    <input type="text" id="inputObservaciones" placeholder="Opcional: nota de entrega, condición de pago, etc.">
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-titulo">
+                    <span>Renglones / Artículos de la Factura</span>
+                    <button type="button" id="btnSumarRenglon" class="btn-exito btn-chico">+ Sumar Renglón</button>
+                </div>
+
+                <div class="tabla-wrapper">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th style="width: 28%;">ID Artículo</th>
+                            <th style="width: 18%;">Cantidad</th>
+                            <th style="width: 22%;">Precio Unit. ($)</th>
+                            <th style="width: 14%;">% IVA</th>
+                            <th style="width: 12%;" class="texto-derecha">Subtotal</th>
+                            <th style="width: 6%;" class="texto-centro">Quitar</th>
+                        </tr>
+                        </thead>
+                        <tbody id="tbodyRenglones"></tbody>
+                    </table>
+                </div>
+
+                <div class="resumen-totales">
+                    <div class="caja-totales">
+                        <div class="fila-total">
+                            <span>Importe Neto:</span>
+                            <strong id="txtNeto">$0.00</strong>
+                        </div>
+                        <div class="fila-total">
+                            <span>Monto IVA:</span>
+                            <strong id="txtIva">$0.00</strong>
+                        </div>
+                        <div class="fila-total final">
+                            <span>Total Factura:</span>
+                            <span id="txtTotal">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="acciones-barra" style="margin-top: 20px;">
+                    <button type="submit" class="btn-primario">Confirmar y Guardar Factura</button>
+                    <button type="button" id="btnCancelarAlta" class="btn-secundario">Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+</main>
+
+<script type="module" src="./dist/app.js"></script>
+</body>
+</html>
