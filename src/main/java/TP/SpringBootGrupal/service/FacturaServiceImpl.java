@@ -247,7 +247,6 @@ public class FacturaServiceImpl implements FacturaService {
         factura.setTipoMoneda(tipoMoneda);
         factura.setPuntoVenta(puntoVenta);
 
-        // Se conserva la colección administrada por JPA.
         factura.getDetalles().clear();
         factura.getDetalles().addAll(nuevosDetalles);
 
@@ -271,21 +270,15 @@ public class FacturaServiceImpl implements FacturaService {
             );
         }
 
-        if (dto.cantidad() == null
-                || !Double.isFinite(dto.cantidad())
-                || dto.cantidad() <= 0) {
+        if (dto.cantidad() == null || !Double.isFinite(dto.cantidad()) || dto.cantidad() <= 0) {
             throw new IllegalArgumentException(
                     "La cantidad debe ser mayor que cero"
             );
         }
 
-        double bonificacion = dto.porcentajeBonificacion() == null
-                ? 0
-                : dto.porcentajeBonificacion();
+        double bonificacion = dto.porcentajeBonificacion() == null ? 0 : dto.porcentajeBonificacion();
 
-        if (!Double.isFinite(bonificacion)
-                || bonificacion < 0
-                || bonificacion > 100) {
+        if (!Double.isFinite(bonificacion) || bonificacion < 0 || bonificacion > 100) {
             throw new IllegalArgumentException(
                     "La bonificación debe estar entre 0 y 100"
             );
@@ -293,8 +286,7 @@ public class FacturaServiceImpl implements FacturaService {
 
         ListaPrecioArticulo precio = buscarPrecio(dto.articuloId());
 
-        if (!Double.isFinite(precio.getPrecioVenta())
-                || precio.getPrecioVenta() < 0) {
+        if (!Double.isFinite(precio.getPrecioVenta()) || precio.getPrecioVenta() < 0) {
             throw new IllegalArgumentException(
                     "El precio del artículo es inválido"
             );
@@ -425,7 +417,6 @@ public class FacturaServiceImpl implements FacturaService {
             return FacturaReporteDTO.toDTO(factura);
         }
 
-        // Reutiliza tu baja lógica y su registro de auditoría.
         delete(id, usuarioId);
 
         factura.setObservaciones(observaciones);

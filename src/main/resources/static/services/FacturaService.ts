@@ -42,7 +42,6 @@ export class FacturaService {
 
         const facturas: FacturaReporteDTO[] = await response.json();
 
-        // En esta versión, los filtros se aplican en el frontend.
         return facturas.filter(f => {
             const contiene = (valor: string, filtro?: string): boolean =>
                 !filtro || valor.toLowerCase().includes(

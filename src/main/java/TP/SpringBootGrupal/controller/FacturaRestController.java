@@ -1,5 +1,6 @@
 package TP.SpringBootGrupal.controller;
 
+import TP.SpringBootGrupal.Exceptions.RecursoNoEncontradoException;
 import TP.SpringBootGrupal.dtos.Factura.FacturaEstadoRequestDTO;
 import TP.SpringBootGrupal.dtos.Factura.FacturaReporteDTO;
 import TP.SpringBootGrupal.dtos.Factura.FacturaRequestDTO;
@@ -13,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/facturas")
@@ -86,5 +88,13 @@ public class FacturaRestController {
         service.delete(id, usuarioId);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @ExceptionHandler(RecursoNoEncontradoException.class)
+    public ResponseEntity<Map<String, String>> recursoNoEncontrado(
+            RecursoNoEncontradoException ex
+    ) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("mensaje", ex.getMessage()));
     }
 }
