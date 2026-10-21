@@ -127,7 +127,7 @@
                     </div>
                     <div class="campo">
                         <label for="inputCliente">ID Cliente</label>
-                        <input type="number" id="inputCliente" placeholder="Ej: 1" min="1" required>
+                        <input type="number" id="inputCliente" placeholder="Vacío: consumidor final" min="1">
                     </div>
                     <div class="campo">
                         <label for="inputCondicionIva">ID Condición IVA</label>
@@ -163,7 +163,9 @@
                 </div>
 
                 <div class="acciones-barra" style="margin-top: 20px;">
-                    <button type="submit" class="btn-primario">Confirmar y Guardar Factura</button>
+                    <button type="submit" id="btnGuardarFactura" class="btn-primario">
+                        Confirmar y Guardar Factura
+                    </button>
                     <button type="button" id="btnCancelarAlta" class="btn-secundario">Cancelar</button>
                 </div>
             </div>

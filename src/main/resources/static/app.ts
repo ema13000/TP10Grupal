@@ -9,6 +9,7 @@ import { FacturaService } from './services/FacturaService.js';
 
 const api = new FacturaService();
 let renglones: FacturaDetalleRequestDTO[] = [];
+let facturaEnEdicionId: number | null = null;
 
 function elemento<T extends HTMLElement>(id: string): T {
     const encontrado = document.getElementById(id);
@@ -101,6 +102,16 @@ function dibujarFacturas(facturas: FacturaReporteDTO[]): void {
         }
 
         const acciones = fila.insertCell();
+        const editar = document.createElement('button');
+
+        editar.type = 'button';
+        editar.textContent = 'Editar';
+        editar.className = 'btn-chico btn-secundario';
+        editar.disabled = factura.estado === 'ANULADA';
+
+        editar.addEventListener('click', () => {
+            void ejecutar(() => editarFactura(factura.id));
+        });
 
         const anular = document.createElement('button');
         anular.textContent = 'Anular';
@@ -146,7 +157,7 @@ function dibujarFacturas(facturas: FacturaReporteDTO[]): void {
             });
         });
 
-        acciones.append(anular, eliminar);
+        acciones.append(editar, anular, eliminar);
     }
 }
 
@@ -217,6 +228,8 @@ function dibujarRenglones(): void {
 }
 
 function mostrarAlta(): void {
+    facturaEnEdicionId = null;
+
     elemento('seccionListado').classList.add('oculto');
     elemento('seccionAlta').classList.remove('oculto');
     elemento('tabListado').classList.remove('activo');
@@ -224,17 +237,56 @@ function mostrarAlta(): void {
 
     elemento<HTMLFormElement>('formAltaFactura').reset();
 
+    elemento<HTMLInputElement>('inputNumero').readOnly = false;
+
+    elemento('btnGuardarFactura').textContent =
+        'Confirmar y Guardar Factura';
+
     renglones = [];
     agregarRenglon();
 }
 
 async function mostrarListado(): Promise<void> {
+    facturaEnEdicionId = null;
     elemento('seccionAlta').classList.add('oculto');
     elemento('seccionListado').classList.remove('oculto');
     elemento('tabNueva').classList.remove('activo');
     elemento('tabListado').classList.add('activo');
 
     await cargarListado();
+}
+
+async function editarFactura(id: number): Promise<void> {
+    const factura = await api.obtenerParaEdicion(id);
+
+    mostrarAlta();
+
+    facturaEnEdicionId = id;
+
+    const numero = elemento<HTMLInputElement>('inputNumero');
+    numero.value = String(factura.numeroFactura);
+    numero.readOnly = true;
+
+    elemento<HTMLInputElement>('inputCliente').value =
+        factura.clienteId === null
+            ? ''
+            : String(factura.clienteId);
+
+    elemento<HTMLInputElement>('inputCondicionIva').value =
+        String(factura.condicionIvaId);
+
+    elemento<HTMLInputElement>('inputMoneda').value =
+        String(factura.tipoMonedaId);
+
+    elemento<HTMLInputElement>('inputPuntoVenta').value =
+        String(factura.puntoVentaId);
+
+    renglones = factura.detalles.map(detalle => ({ ...detalle }));
+
+    dibujarRenglones();
+
+    elemento('btnGuardarFactura').textContent =
+        `Guardar cambios de factura ${factura.numeroFactura}`;
 }
 
 async function guardarFactura(): Promise<void> {
@@ -245,26 +297,53 @@ async function guardarFactura(): Promise<void> {
     for (const renglon of renglones) {
         if (!Number.isInteger(renglon.articuloId)
             || renglon.articuloId <= 0) {
-            throw new Error('Los ID de artículo deben ser enteros positivos.');
+            throw new Error(
+                'Los ID de artículo deben ser enteros positivos.'
+            );
         }
     }
 
-    configurarOperacion(numeroCampo('inputNumero'));
+    const textoCliente = valor('inputCliente');
+
+    const clienteId = textoCliente === ''
+        ? null
+        : numeroCampo('inputCliente');
+
+    if (clienteId !== null
+        && (!Number.isInteger(clienteId) || clienteId <= 0)) {
+        throw new Error('El ID de cliente debe ser un entero positivo.');
+    }
 
     const dto: FacturaRequestDTO = {
-        clienteId: numeroCampo('inputCliente'),
+        clienteId,
         condicionIvaId: numeroCampo('inputCondicionIva'),
         tipoMonedaId: numeroCampo('inputMoneda'),
         puntoVentaId: numeroCampo('inputPuntoVenta'),
         detalles: renglones
     };
 
-    const creada = await api.crearFactura(dto);
+    if (facturaEnEdicionId === null) {
+        configurarOperacion(numeroCampo('inputNumero'));
 
-    alert(
-        `Factura ${creada.numeroFactura} creada. ` +
-        `Total: $${creada.importeTotal.toFixed(2)}`
-    );
+        const creada = await api.crearFactura(dto);
+
+        alert(
+            `Factura ${creada.numeroFactura} creada. ` +
+            `Total: $${creada.importeTotal.toFixed(2)}`
+        );
+    } else {
+        configurarOperacion();
+
+        const actualizada = await api.actualizarFactura(
+            facturaEnEdicionId,
+            dto
+        );
+
+        alert(
+            `Factura ${actualizada.numeroFactura} actualizada. ` +
+            `Total: $${actualizada.importeTotal.toFixed(2)}`
+        );
+    }
 
     await mostrarListado();
 }

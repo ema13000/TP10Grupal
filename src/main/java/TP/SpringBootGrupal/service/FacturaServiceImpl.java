@@ -1,6 +1,8 @@
 package TP.SpringBootGrupal.service;
 
+import TP.SpringBootGrupal.dtos.Factura.FacturaEdicionDTO;
 import TP.SpringBootGrupal.Exceptions.RecursoNoEncontradoException;
+import TP.SpringBootGrupal.dtos.Factura.FacturaEdicionDTO;
 import TP.SpringBootGrupal.dtos.Factura.FacturaReporteDTO;
 import TP.SpringBootGrupal.dtos.Factura.FacturaRequestDTO;
 import TP.SpringBootGrupal.dtos.FacturaDetalle.FacturaDetalleRequestDTO;
@@ -77,6 +79,14 @@ public class FacturaServiceImpl implements FacturaService {
         factura = facturaVentaRepository.save(factura);
 
         return FacturaReporteDTO.toDTO(factura);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FacturaEdicionDTO findParaEdicion(Long id) {
+            FacturaVenta factura = buscarFacturaActiva(id);
+
+            return FacturaEdicionDTO.toDTO(factura);
     }
 
     @Override

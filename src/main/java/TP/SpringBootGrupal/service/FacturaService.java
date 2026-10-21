@@ -1,4 +1,5 @@
 package TP.SpringBootGrupal.service;
+import TP.SpringBootGrupal.dtos.Factura.FacturaEdicionDTO;
 
 import TP.SpringBootGrupal.dtos.Factura.FacturaReporteDTO;
 import TP.SpringBootGrupal.dtos.Factura.FacturaRequestDTO;
@@ -13,6 +14,8 @@ public interface FacturaService {
             Long usuarioId,
             double porcentajeIva
     );
+
+    FacturaEdicionDTO findParaEdicion(Long id);
 
     public List<FacturaReporteDTO> findAll();
 

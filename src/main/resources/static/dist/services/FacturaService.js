@@ -21,7 +21,6 @@ export class FacturaService {
         const response = await fetch(this.baseUrl);
         await this.comprobarRespuesta(response);
         const facturas = await response.json();
-        // En esta versión, los filtros se aplican en el frontend.
         return facturas.filter(f => {
             const contiene = (valor, filtro) => !filtro || valor.toLowerCase().includes(filtro.trim().toLowerCase());
             const fecha = f.fechaEmision.slice(0, 10);
@@ -32,6 +31,11 @@ export class FacturaService {
                 && (!filtros.fechaDesde || fecha >= filtros.fechaDesde)
                 && (!filtros.fechaHasta || fecha <= filtros.fechaHasta);
         });
+    }
+    async obtenerParaEdicion(id) {
+        const response = await fetch(`${this.baseUrl}/${id}/edicion`);
+        await this.comprobarRespuesta(response);
+        return await response.json();
     }
     async crearFactura(factura) {
         const params = this.parametrosUsuario();

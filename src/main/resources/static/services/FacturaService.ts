@@ -1,7 +1,8 @@
 import type {
     FacturaFiltrosDTO,
     FacturaReporteDTO,
-    FacturaRequestDTO
+    FacturaRequestDTO,
+    FacturaEdicionDTO
 } from '../models/factura.dto.js';
 
 export class FacturaService {
@@ -57,6 +58,14 @@ export class FacturaService {
                 && (!filtros.fechaDesde || fecha >= filtros.fechaDesde)
                 && (!filtros.fechaHasta || fecha <= filtros.fechaHasta);
         });
+    }
+
+    async obtenerParaEdicion(id: number): Promise<FacturaEdicionDTO> {
+        const response = await fetch(`${this.baseUrl}/${id}/edicion`);
+
+        await this.comprobarRespuesta(response);
+
+        return await response.json();
     }
 
     async crearFactura(

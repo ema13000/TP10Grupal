@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import TP.SpringBootGrupal.dtos.Factura.FacturaEdicionDTO;
 
 @RestController
 @RequestMapping("/api/facturas")
@@ -53,6 +54,13 @@ public class FacturaRestController {
     @GetMapping("/{id}")
     public ResponseEntity<FacturaReporteDTO> findById(@PathVariable Long id) {
         return ResponseEntity.ok(service.findById(id));
+    }
+
+    @GetMapping("/{id}/edicion")
+    public ResponseEntity<FacturaEdicionDTO> findParaEdicion(
+            @PathVariable("id") Long id
+    ) {
+        return ResponseEntity.ok(service.findParaEdicion(id));
     }
 
     @PostMapping

@@ -33,3 +33,7 @@ export interface FacturaFiltrosDTO {
     fechaDesde?: string;
     fechaHasta?: string;
 }
+
+export interface FacturaEdicionDTO extends FacturaRequestDTO {
+    numeroFactura: number;
+}
