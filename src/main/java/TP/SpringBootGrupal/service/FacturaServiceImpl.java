@@ -247,7 +247,6 @@ public class FacturaServiceImpl implements FacturaService {
         factura.setTipoMoneda(tipoMoneda);
         factura.setPuntoVenta(puntoVenta);
 
-        // Se conserva la colección administrada por JPA.
         factura.getDetalles().clear();
         factura.getDetalles().addAll(nuevosDetalles);
 
