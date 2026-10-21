@@ -20,6 +20,48 @@ function numeroCampo(id) {
     }
     return numero;
 }
+function llenarOpciones(id, opciones, mensaje) {
+    const select = elemento(id);
+    select.replaceChildren();
+    const inicial = document.createElement('option');
+    inicial.value = '';
+    inicial.textContent = opciones.length === 0
+        ? 'No hay opciones disponibles'
+        : mensaje;
+    inicial.defaultSelected = true;
+    inicial.selected = true;
+    select.appendChild(inicial);
+    for (const opcion of opciones) {
+        const option = document.createElement('option');
+        option.value = String(opcion.id);
+        option.textContent = opcion.descripcion;
+        select.appendChild(option);
+    }
+    select.disabled = opciones.length === 0;
+}
+async function cargarOpciones() {
+    try {
+        const [puntosVenta, monedas, condicionesIva] = await Promise.all([
+            api.obtenerPuntosVenta(),
+            api.obtenerTiposMoneda(),
+            api.obtenerCondicionesIva()
+        ]);
+        llenarOpciones('inputPuntoVenta', puntosVenta, 'Seleccioná un punto de venta');
+        llenarOpciones('inputMoneda', monedas, 'Seleccioná una moneda');
+        llenarOpciones('inputCondicionIva', condicionesIva, 'Seleccioná una condición de IVA');
+    }
+    catch (error) {
+        for (const id of ['inputPuntoVenta', 'inputMoneda', 'inputCondicionIva']) {
+            const select = elemento(id);
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No se pudieron cargar las opciones';
+            select.replaceChildren(option);
+            select.disabled = true;
+        }
+        throw error;
+    }
+}
 function configurarOperacion(numero) {
     api.configurar(numeroCampo('inputUsuario'), numeroCampo('inputPorcentajeIva'), numero);
 }
@@ -178,6 +220,7 @@ async function mostrarListado() {
 }
 async function editarFactura(id) {
     const factura = await api.obtenerParaEdicion(id);
+    await cargarOpciones();
     mostrarAlta();
     facturaEnEdicionId = id;
     const numero = elemento('inputNumero');
@@ -199,6 +242,12 @@ async function editarFactura(id) {
         `Guardar cambios de factura ${factura.numeroFactura}`;
 }
 async function guardarFactura() {
+    for (const id of ['inputPuntoVenta', 'inputMoneda', 'inputCondicionIva']) {
+        const select = elemento(id);
+        if (select.disabled || select.value === '') {
+            throw new Error('Seleccioná un punto de venta, una moneda y una condición de IVA disponibles.');
+        }
+    }
     if (renglones.length === 0) {
         throw new Error('Agregá al menos un renglón.');
     }
@@ -238,7 +287,12 @@ async function guardarFactura() {
     await mostrarListado();
 }
 document.addEventListener('DOMContentLoaded', () => {
-    elemento('tabNueva').addEventListener('click', mostrarAlta);
+    elemento('tabNueva').addEventListener('click', () => {
+        void ejecutar(async () => {
+            await cargarOpciones();
+            mostrarAlta();
+        });
+    });
     for (const id of ['tabListado', 'btnVolver', 'btnCancelarAlta']) {
         elemento(id).addEventListener('click', () => {
             void ejecutar(mostrarListado);

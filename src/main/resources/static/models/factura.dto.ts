@@ -37,3 +37,8 @@ export interface FacturaFiltrosDTO {
 export interface FacturaEdicionDTO extends FacturaRequestDTO {
     numeroFactura: number;
 }
+
+export interface OpcionDTO {
+    id: number;
+    descripcion: string;
+}

@@ -2,7 +2,8 @@ import type {
     FacturaDetalleRequestDTO,
     FacturaFiltrosDTO,
     FacturaReporteDTO,
-    FacturaRequestDTO
+    FacturaRequestDTO,
+    OpcionDTO
 } from './models/factura.dto.js';
 
 import { FacturaService } from './services/FacturaService.js';
@@ -22,7 +23,7 @@ function elemento<T extends HTMLElement>(id: string): T {
 }
 
 function valor(id: string): string {
-    return elemento<HTMLInputElement>(id).value.trim();
+    return elemento<HTMLInputElement | HTMLSelectElement>(id).value.trim();
 }
 
 function numeroCampo(id: string): number {
@@ -34,6 +35,58 @@ function numeroCampo(id: string): number {
     }
 
     return numero;
+}
+
+function llenarOpciones(
+    id: string,
+    opciones: OpcionDTO[],
+    mensaje: string
+): void {
+    const select = elemento<HTMLSelectElement>(id);
+    select.replaceChildren();
+
+    const inicial = document.createElement('option');
+    inicial.value = '';
+    inicial.textContent = opciones.length === 0
+        ? 'No hay opciones disponibles'
+        : mensaje;
+    inicial.defaultSelected = true;
+    inicial.selected = true;
+    select.appendChild(inicial);
+
+    for (const opcion of opciones) {
+        const option = document.createElement('option');
+        option.value = String(opcion.id);
+        option.textContent = opcion.descripcion;
+        select.appendChild(option);
+    }
+
+    select.disabled = opciones.length === 0;
+}
+
+async function cargarOpciones(): Promise<void> {
+    try {
+        const [puntosVenta, monedas, condicionesIva] = await Promise.all([
+            api.obtenerPuntosVenta(),
+            api.obtenerTiposMoneda(),
+            api.obtenerCondicionesIva()
+        ]);
+
+        llenarOpciones('inputPuntoVenta', puntosVenta, 'Seleccioná un punto de venta');
+        llenarOpciones('inputMoneda', monedas, 'Seleccioná una moneda');
+        llenarOpciones('inputCondicionIva', condicionesIva, 'Seleccioná una condición de IVA');
+    } catch (error) {
+        for (const id of ['inputPuntoVenta', 'inputMoneda', 'inputCondicionIva']) {
+            const select = elemento<HTMLSelectElement>(id);
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No se pudieron cargar las opciones';
+            select.replaceChildren(option);
+            select.disabled = true;
+        }
+
+        throw error;
+    }
 }
 
 function configurarOperacion(numero?: number): void {
@@ -258,6 +311,7 @@ async function mostrarListado(): Promise<void> {
 
 async function editarFactura(id: number): Promise<void> {
     const factura = await api.obtenerParaEdicion(id);
+    await cargarOpciones();
 
     mostrarAlta();
 
@@ -272,13 +326,13 @@ async function editarFactura(id: number): Promise<void> {
             ? ''
             : String(factura.clienteId);
 
-    elemento<HTMLInputElement>('inputCondicionIva').value =
+    elemento<HTMLSelectElement>('inputCondicionIva').value =
         String(factura.condicionIvaId);
 
-    elemento<HTMLInputElement>('inputMoneda').value =
+    elemento<HTMLSelectElement>('inputMoneda').value =
         String(factura.tipoMonedaId);
 
-    elemento<HTMLInputElement>('inputPuntoVenta').value =
+    elemento<HTMLSelectElement>('inputPuntoVenta').value =
         String(factura.puntoVentaId);
 
     renglones = factura.detalles.map(detalle => ({ ...detalle }));
@@ -290,6 +344,15 @@ async function editarFactura(id: number): Promise<void> {
 }
 
 async function guardarFactura(): Promise<void> {
+    for (const id of ['inputPuntoVenta', 'inputMoneda', 'inputCondicionIva']) {
+        const select = elemento<HTMLSelectElement>(id);
+        if (select.disabled || select.value === '') {
+            throw new Error(
+                'Seleccioná un punto de venta, una moneda y una condición de IVA disponibles.'
+            );
+        }
+    }
+
     if (renglones.length === 0) {
         throw new Error('Agregá al menos un renglón.');
     }
@@ -349,7 +412,12 @@ async function guardarFactura(): Promise<void> {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    elemento('tabNueva').addEventListener('click', mostrarAlta);
+    elemento('tabNueva').addEventListener('click', () => {
+        void ejecutar(async () => {
+            await cargarOpciones();
+            mostrarAlta();
+        });
+    });
 
     for (const id of ['tabListado', 'btnVolver', 'btnCancelarAlta']) {
         elemento(id).addEventListener('click', () => {

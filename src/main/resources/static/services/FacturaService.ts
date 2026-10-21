@@ -2,15 +2,35 @@ import type {
     FacturaFiltrosDTO,
     FacturaReporteDTO,
     FacturaRequestDTO,
-    FacturaEdicionDTO
+    FacturaEdicionDTO,
+    OpcionDTO
 } from '../models/factura.dto.js';
 
 export class FacturaService {
     private readonly baseUrl = 'http://localhost:8080/api/facturas';
+    private readonly catalogosUrl = 'http://localhost:8080/api/catalogos';
 
     private usuarioId?: number;
     private porcentajeIva?: number;
     private numero?: number;
+
+    async obtenerPuntosVenta(): Promise<OpcionDTO[]> {
+        const response = await fetch(`${this.catalogosUrl}/puntos-venta`);
+        await this.comprobarRespuesta(response);
+        return await response.json();
+    }
+
+    async obtenerTiposMoneda(): Promise<OpcionDTO[]> {
+        const response = await fetch(`${this.catalogosUrl}/tipos-moneda`);
+        await this.comprobarRespuesta(response);
+        return await response.json();
+    }
+
+    async obtenerCondicionesIva(): Promise<OpcionDTO[]> {
+        const response = await fetch(`${this.catalogosUrl}/condiciones-iva`);
+        await this.comprobarRespuesta(response);
+        return await response.json();
+    }
 
     configurar(
         usuarioId: number,

@@ -1,6 +1,22 @@
 export class FacturaService {
     constructor() {
         this.baseUrl = 'http://localhost:8080/api/facturas';
+        this.catalogosUrl = 'http://localhost:8080/api/catalogos';
+    }
+    async obtenerPuntosVenta() {
+        const response = await fetch(`${this.catalogosUrl}/puntos-venta`);
+        await this.comprobarRespuesta(response);
+        return await response.json();
+    }
+    async obtenerTiposMoneda() {
+        const response = await fetch(`${this.catalogosUrl}/tipos-moneda`);
+        await this.comprobarRespuesta(response);
+        return await response.json();
+    }
+    async obtenerCondicionesIva() {
+        const response = await fetch(`${this.catalogosUrl}/condiciones-iva`);
+        await this.comprobarRespuesta(response);
+        return await response.json();
     }
     configurar(usuarioId, porcentajeIva, numero) {
         if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
