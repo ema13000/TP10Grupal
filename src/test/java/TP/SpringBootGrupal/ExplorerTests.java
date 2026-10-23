@@ -1,0 +1,143 @@
+package TP.SpringBootGrupal;
+
+import TP.SpringBootGrupal.Exceptions.RecursoNoEncontradoException;
+import TP.SpringBootGrupal.dtos.Factura.FacturaEdicionDTO;
+import TP.SpringBootGrupal.dtos.Factura.FacturaRequestDTO;
+import TP.SpringBootGrupal.dtos.FacturaDetalle.FacturaDetalleRequestDTO;
+import TP.SpringBootGrupal.entities.*;
+import TP.SpringBootGrupal.repository.*;
+import TP.SpringBootGrupal.service.CatalogoService;
+import TP.SpringBootGrupal.service.FacturaServiceImpl;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+class ExplorerTests {
+    private final ClienteRepository clientes = mock(ClienteRepository.class);
+    private final ListaPrecioArticuloRepository precios = mock(ListaPrecioArticuloRepository.class);
+    private final PuntoVentaRepository puntos = mock(PuntoVentaRepository.class);
+    private final TipoMonedaRepository monedas = mock(TipoMonedaRepository.class);
+    private final CondicionIvaRepository condiciones = mock(CondicionIvaRepository.class);
+    private final FacturaVentaRepository facturas = mock(FacturaVentaRepository.class);
+    private final UsuarioRepository usuarios = mock(UsuarioRepository.class);
+
+    private ListaPrecioArticulo precio(long id, double importe) {
+        Articulo articulo = new Articulo();
+        articulo.setId(8L);
+        articulo.setCodigo("A8");
+        articulo.setDenominacion("Cuaderno");
+        ListaPrecio lista = new ListaPrecio();
+        lista.setDenominacion("Lista " + id);
+        ListaPrecioArticulo precio = new ListaPrecioArticulo();
+        precio.setId(id);
+        precio.setArticulo(articulo);
+        precio.setListaPrecio(lista);
+        precio.setPrecioVenta(importe);
+        return precio;
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {25, 26})
+    void guardaLaEntradaDePrecioSeleccionadaParaElMismoArticulo(long id) {
+        ListaPrecioArticulo elegido = precio(id, id == 25 ? 100 : 80);
+        when(precios.findById(id)).thenReturn(Optional.of(elegido));
+        when(usuarios.findById(1L)).thenReturn(Optional.of(new Usuario()));
+        when(condiciones.findById(1L)).thenReturn(Optional.of(new CondicionIva()));
+        when(monedas.findById(1L)).thenReturn(Optional.of(new TipoMoneda()));
+        when(puntos.findById(1L)).thenReturn(Optional.of(new PuntoVenta()));
+        when(facturas.save(any(FacturaVenta.class))).thenAnswer(invocacion -> {
+            FacturaVenta factura = invocacion.getArgument(0);
+            assertSame(elegido, factura.getDetalles().get(0).getListaPrecioArticulo());
+            assertEquals(elegido.getPrecioVenta(), factura.getDetalles().get(0).getPrecioUnitario());
+            return factura;
+        });
+        FacturaServiceImpl servicio = new FacturaServiceImpl(
+                facturas, clientes, condiciones, monedas, puntos, precios, usuarios);
+        var dto = new FacturaRequestDTO(null, 1L, 1L, 1L,
+                List.of(new FacturaDetalleRequestDTO(id, 2.0, 0.0)));
+        var resultado = servicio.save(dto, 1L, 1L, 0);
+        assertEquals(elegido.getPrecioVenta() * 2, resultado.getImporteTotal());
+        verify(precios, never()).findByArticulo_Id(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void rechazaPrecioInexistenteODadoDeBaja(boolean baja) {
+        ListaPrecioArticulo precio = precio(25, 100);
+        precio.setFechaBaja(new Date());
+        when(precios.findById(25L)).thenReturn(baja ? Optional.of(precio) : Optional.empty());
+        when(usuarios.findById(1L)).thenReturn(Optional.of(new Usuario()));
+        when(condiciones.findById(1L)).thenReturn(Optional.of(new CondicionIva()));
+        when(monedas.findById(1L)).thenReturn(Optional.of(new TipoMoneda()));
+        when(puntos.findById(1L)).thenReturn(Optional.of(new PuntoVenta()));
+        var servicio = new FacturaServiceImpl(facturas, clientes, condiciones, monedas, puntos, precios, usuarios);
+        var dto = new FacturaRequestDTO(null, 1L, 1L, 1L,
+                List.of(new FacturaDetalleRequestDTO(25L, 1.0, 0.0)));
+        assertThrows(RecursoNoEncontradoException.class, () -> servicio.save(dto, 1L, 1L, 0));
+        verify(facturas, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {25, 26})
+    void edicionConservaIdDePrecioEnLugarDeIdArticulo(long id) {
+        FacturaVenta factura = new FacturaVenta();
+        factura.setCondicionIva(new CondicionIva());
+        factura.setTipoMoneda(new TipoMoneda());
+        factura.setPuntoVenta(new PuntoVenta());
+        FacturaVentaDetalle detalle = new FacturaVentaDetalle();
+        detalle.setListaPrecioArticulo(precio(id, 100));
+        factura.getDetalles().add(detalle);
+        assertEquals(id, FacturaEdicionDTO.toDTO(factura).detalles().get(0).listaPrecioArticuloId());
+    }
+
+    @Test
+    void explorerClientesMuestraDatosYExcluyeBajas() {
+        Cliente activo = new Cliente();
+        activo.setId(7L);
+        activo.setDenominacion("Librería");
+        activo.setCuitCuil("20123456789");
+        Cliente baja = new Cliente();
+        baja.setFechaBaja(new Date());
+        when(clientes.findAll()).thenReturn(List.of(activo, baja));
+        var servicio = new CatalogoService(puntos, monedas, condiciones, clientes, precios);
+        var resultado = servicio.obtenerClientes();
+        assertEquals(1, resultado.size());
+        assertEquals(7L, resultado.get(0).id());
+        assertEquals("Librería", resultado.get(0).denominacion());
+        assertEquals("20123456789", resultado.get(0).cuitCuil());
+    }
+
+    @Test
+    void explorerPreciosDistingueListasYExcluyeBajas() {
+        var primero = precio(25, 100);
+        var segundo = precio(26, 80);
+        var baja = precio(27, 90);
+        baja.setFechaBaja(new Date());
+        var articuloBaja = precio(28, 90);
+        articuloBaja.getArticulo().setFechaBaja(new Date());
+        var listaBaja = precio(29, 90);
+        listaBaja.getListaPrecio().setFechaBaja(new Date());
+        when(precios.findAll()).thenReturn(List.of(primero, segundo, baja, articuloBaja, listaBaja));
+        var servicio = new CatalogoService(puntos, monedas, condiciones, clientes, precios);
+        var resultado = servicio.obtenerPreciosArticulos();
+        assertEquals(List.of(25L, 26L), resultado.stream().map(p -> p.id()).toList());
+        assertEquals("Cuaderno", resultado.get(0).articuloDenominacion());
+        assertEquals("Lista 26", resultado.get(1).listaPrecioDenominacion());
+        assertEquals(80, resultado.get(1).precioVenta());
+    }
+
+    @Test
+    void explorersDevuelvenListaVaciaSinRegistros() {
+        var servicio = new CatalogoService(puntos, monedas, condiciones, clientes, precios);
+        assertTrue(servicio.obtenerClientes().isEmpty());
+        assertTrue(servicio.obtenerPreciosArticulos().isEmpty());
+    }
+}

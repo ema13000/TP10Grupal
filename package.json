@@ -1,0 +1,12 @@
+{
+  "name": "tp10-facturacion-frontend",
+  "private": true,
+  "scripts": {
+    "build:frontend": "tsc -p src/main/resources/static/tsconfig.json",
+    "test:frontend": "playwright test src/test/frontend/explorers.spec.cjs --workers=1"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1",
+    "typescript": "7.0.2"
+  }
+}
