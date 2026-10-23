@@ -1,5 +1,5 @@
 export interface FacturaDetalleRequestDTO {
-    articuloId: number;
+    listaPrecioArticuloId: number;
     cantidad: number;
     porcentajeBonificacion: number | null;
 }
@@ -41,4 +41,18 @@ export interface FacturaEdicionDTO extends FacturaRequestDTO {
 export interface OpcionDTO {
     id: number;
     descripcion: string;
+}
+
+export interface ClienteExplorerDTO {
+    id: number;
+    cuitCuil: string;
+    denominacion: string;
+}
+
+export interface PrecioArticuloExplorerDTO {
+    id: number;
+    articuloCodigo: string;
+    articuloDenominacion: string;
+    listaPrecioDenominacion: string;
+    precioVenta: number;
 }

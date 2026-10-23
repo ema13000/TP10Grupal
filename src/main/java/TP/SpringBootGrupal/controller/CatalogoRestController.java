@@ -1,6 +1,8 @@
 package TP.SpringBootGrupal.controller;
 
 import TP.SpringBootGrupal.dtos.OpcionDTO;
+import TP.SpringBootGrupal.dtos.ClienteExplorerDTO;
+import TP.SpringBootGrupal.dtos.PrecioArticuloExplorerDTO;
 import TP.SpringBootGrupal.service.CatalogoService;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +17,16 @@ public class CatalogoRestController {
 
     public CatalogoRestController(CatalogoService service) {
         this.service = service;
+    }
+
+    @GetMapping("/clientes")
+    public List<ClienteExplorerDTO> obtenerClientes() {
+        return service.obtenerClientes();
+    }
+
+    @GetMapping("/precios-articulos")
+    public List<PrecioArticuloExplorerDTO> obtenerPreciosArticulos() {
+        return service.obtenerPreciosArticulos();
     }
 
     @GetMapping("/puntos-venta")

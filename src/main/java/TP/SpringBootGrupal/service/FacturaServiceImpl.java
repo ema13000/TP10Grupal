@@ -294,7 +294,7 @@ public class FacturaServiceImpl implements FacturaService {
             );
         }
 
-        ListaPrecioArticulo precio = buscarPrecio(dto.articuloId());
+        ListaPrecioArticulo precio = buscarPrecio(dto.listaPrecioArticuloId());
 
         if (!Double.isFinite(precio.getPrecioVenta()) || precio.getPrecioVenta() < 0) {
             throw new IllegalArgumentException(
@@ -338,31 +338,20 @@ public class FacturaServiceImpl implements FacturaService {
         return detalle;
     }
 
-    private ListaPrecioArticulo buscarPrecio(Long articuloId) {
-        List<ListaPrecioArticulo> precios =
-                listaPrecioArticuloRepository.findByArticulo_Id(articuloId);
-
-        List<ListaPrecioArticulo> activos = new ArrayList<>();
-
-        for (ListaPrecioArticulo precio : precios) {
-            if (precio.getFechaBaja() == null) {
-                activos.add(precio);
-            }
+    private ListaPrecioArticulo buscarPrecio(Long listaPrecioArticuloId) {
+        if (listaPrecioArticuloId == null || listaPrecioArticuloId <= 0) {
+            throw new IllegalArgumentException("Seleccioná un artículo de una lista de precios");
         }
+        ListaPrecioArticulo precio = listaPrecioArticuloRepository.findById(listaPrecioArticuloId)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe ListaPrecioArticulo con ID " + listaPrecioArticuloId));
 
-        if (activos.isEmpty()) {
-            throw new RecursoNoEncontradoException(
-                    "No existe un precio activo para el artículo " + articuloId
-            );
+        if (precio.getFechaBaja() != null
+                || precio.getArticulo().getFechaBaja() != null
+                || precio.getListaPrecio().getFechaBaja() != null) {
+            throw new RecursoNoEncontradoException("El artículo o su lista de precios están dados de baja");
         }
-
-        if (activos.size() > 1) {
-            throw new IllegalArgumentException(
-                    "El artículo tiene varios precios: debe seleccionarse una lista"
-            );
-        }
-
-        return activos.get(0);
+        return precio;
     }
 
     private FacturaVenta buscarFacturaActiva(Long id) {

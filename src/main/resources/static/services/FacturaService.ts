@@ -3,7 +3,9 @@ import type {
     FacturaReporteDTO,
     FacturaRequestDTO,
     FacturaEdicionDTO,
-    OpcionDTO
+    OpcionDTO,
+    ClienteExplorerDTO,
+    PrecioArticuloExplorerDTO
 } from '../models/factura.dto.js';
 
 export class FacturaService {
@@ -13,6 +15,18 @@ export class FacturaService {
     private usuarioId?: number;
     private porcentajeIva?: number;
     private numero?: number;
+
+    async obtenerClientes(): Promise<ClienteExplorerDTO[]> {
+        const response = await fetch(`${this.catalogosUrl}/clientes`);
+        await this.comprobarRespuesta(response);
+        return await response.json();
+    }
+
+    async obtenerPreciosArticulos(): Promise<PrecioArticuloExplorerDTO[]> {
+        const response = await fetch(`${this.catalogosUrl}/precios-articulos`);
+        await this.comprobarRespuesta(response);
+        return await response.json();
+    }
 
     async obtenerPuntosVenta(): Promise<OpcionDTO[]> {
         const response = await fetch(`${this.catalogosUrl}/puntos-venta`);

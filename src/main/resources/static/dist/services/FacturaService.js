@@ -3,6 +3,16 @@ export class FacturaService {
         this.baseUrl = 'http://localhost:8080/api/facturas';
         this.catalogosUrl = 'http://localhost:8080/api/catalogos';
     }
+    async obtenerClientes() {
+        const response = await fetch(`${this.catalogosUrl}/clientes`);
+        await this.comprobarRespuesta(response);
+        return await response.json();
+    }
+    async obtenerPreciosArticulos() {
+        const response = await fetch(`${this.catalogosUrl}/precios-articulos`);
+        await this.comprobarRespuesta(response);
+        return await response.json();
+    }
     async obtenerPuntosVenta() {
         const response = await fetch(`${this.catalogosUrl}/puntos-venta`);
         await this.comprobarRespuesta(response);

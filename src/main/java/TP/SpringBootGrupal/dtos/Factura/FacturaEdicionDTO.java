@@ -17,7 +17,7 @@ public record FacturaEdicionDTO(
         List<FacturaDetalleRequestDTO> detalles = factura.getDetalles()
                 .stream()
                 .map(detalle -> new FacturaDetalleRequestDTO(
-                        detalle.getListaPrecioArticulo().getArticulo().getId(),
+                        detalle.getListaPrecioArticulo().getId(),
                         detalle.getCantidad(),
                         detalle.getPorcentajeBonificacion()
                 ))

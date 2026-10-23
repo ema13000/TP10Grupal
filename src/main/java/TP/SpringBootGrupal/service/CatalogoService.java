@@ -1,6 +1,10 @@
 package TP.SpringBootGrupal.service;
 
 import TP.SpringBootGrupal.dtos.OpcionDTO;
+import TP.SpringBootGrupal.dtos.ClienteExplorerDTO;
+import TP.SpringBootGrupal.dtos.PrecioArticuloExplorerDTO;
+import TP.SpringBootGrupal.repository.ClienteRepository;
+import TP.SpringBootGrupal.repository.ListaPrecioArticuloRepository;
 import TP.SpringBootGrupal.repository.CondicionIvaRepository;
 import TP.SpringBootGrupal.repository.PuntoVentaRepository;
 import TP.SpringBootGrupal.repository.TipoMonedaRepository;
@@ -15,15 +19,43 @@ public class CatalogoService {
     private final PuntoVentaRepository puntoVentaRepository;
     private final TipoMonedaRepository tipoMonedaRepository;
     private final CondicionIvaRepository condicionIvaRepository;
+    private final ClienteRepository clienteRepository;
+    private final ListaPrecioArticuloRepository listaPrecioArticuloRepository;
 
     public CatalogoService(
             PuntoVentaRepository puntoVentaRepository,
             TipoMonedaRepository tipoMonedaRepository,
-            CondicionIvaRepository condicionIvaRepository
+            CondicionIvaRepository condicionIvaRepository,
+            ClienteRepository clienteRepository,
+            ListaPrecioArticuloRepository listaPrecioArticuloRepository
     ) {
         this.puntoVentaRepository = puntoVentaRepository;
         this.tipoMonedaRepository = tipoMonedaRepository;
         this.condicionIvaRepository = condicionIvaRepository;
+        this.clienteRepository = clienteRepository;
+        this.listaPrecioArticuloRepository = listaPrecioArticuloRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ClienteExplorerDTO> obtenerClientes() {
+        return clienteRepository.findAll().stream()
+                .filter(cliente -> cliente.getFechaBaja() == null)
+                .map(cliente -> new ClienteExplorerDTO(
+                        cliente.getId(), cliente.getCuitCuil(), cliente.getDenominacion()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PrecioArticuloExplorerDTO> obtenerPreciosArticulos() {
+        return listaPrecioArticuloRepository.findAll().stream()
+                .filter(precio -> precio.getFechaBaja() == null
+                        && precio.getArticulo().getFechaBaja() == null
+                        && precio.getListaPrecio().getFechaBaja() == null)
+                .map(precio -> new PrecioArticuloExplorerDTO(
+                        precio.getId(), precio.getArticulo().getCodigo(),
+                        precio.getArticulo().getDenominacion(),
+                        precio.getListaPrecio().getDenominacion(), precio.getPrecioVenta()))
+                .toList();
     }
 
     @Transactional(readOnly = true)

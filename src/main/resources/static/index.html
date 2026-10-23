@@ -128,8 +128,13 @@
                         </select>
                     </div>
                     <div class="campo">
-                        <label for="inputCliente">ID Cliente</label>
-                        <input type="number" id="inputCliente" placeholder="Vacío: consumidor final" min="1">
+                        <label for="clienteDescripcion">Cliente</label>
+                        <input type="hidden" id="inputCliente">
+                        <input type="text" id="clienteDescripcion" value="Consumidor final" readonly>
+                        <div class="selector-acciones">
+                            <button type="button" id="btnBuscarCliente" class="btn-secundario">Buscar cliente</button>
+                            <button type="button" id="btnQuitarCliente" class="btn-secundario">Consumidor final</button>
+                        </div>
                     </div>
                     <div class="campo">
                         <label for="inputCondicionIva">Condición de IVA</label>
@@ -158,7 +163,7 @@
                     <table>
                         <thead>
                         <tr>
-                            <th>ID artículo</th>
+                            <th>Artículo / Lista de precios / Precio</th>
                             <th>Cantidad</th>
                             <th>Bonificación (%)</th>
                             <th>Quitar</th>
@@ -179,6 +184,22 @@
     </div>
 
 </main>
+
+<dialog id="explorerDialog" class="explorer" aria-labelledby="explorerTitulo">
+    <div class="panel-titulo">
+        <h2 id="explorerTitulo">Buscar</h2>
+        <button type="button" id="btnCerrarExplorer" class="btn-secundario">Cerrar</button>
+    </div>
+    <label for="explorerBusqueda">Buscar en la tabla</label>
+    <input type="search" id="explorerBusqueda" placeholder="Escribí para filtrar..." autocomplete="off">
+    <p id="explorerEstado" role="status" aria-live="polite"></p>
+    <div class="tabla-wrapper">
+        <table>
+            <thead><tr id="explorerColumnas"></tr></thead>
+            <tbody id="explorerFilas"></tbody>
+        </table>
+    </div>
+</dialog>
 
 <script type="module" src="./dist/app.js"></script>
 </body>

@@ -2,6 +2,9 @@ import { FacturaService } from './services/FacturaService.js';
 const api = new FacturaService();
 let renglones = [];
 let facturaEnEdicionId = null;
+let preciosArticulos = [];
+let filtrarExplorer = () => { };
+let solicitudExplorer = 0;
 function elemento(id) {
     const encontrado = document.getElementById(id);
     if (!encontrado) {
@@ -157,7 +160,7 @@ function dibujarFacturas(facturas) {
 }
 function agregarRenglon() {
     renglones.push({
-        articuloId: 1,
+        listaPrecioArticuloId: 0,
         cantidad: 1,
         porcentajeBonificacion: 0
     });
@@ -183,12 +186,35 @@ function dibujarRenglones() {
             });
             fila.insertCell().appendChild(input);
         };
-        crearInput(renglon.articuloId, 1, n => renglon.articuloId = n);
+        const celdaPrecio = fila.insertCell();
+        const descripcion = document.createElement('span');
+        descripcion.className = 'precio-seleccionado';
+        const precio = preciosArticulos.find(p => p.id === renglon.listaPrecioArticuloId);
+        descripcion.textContent = precio
+            ? `${precio.articuloCodigo} - ${precio.articuloDenominacion} | ${precio.listaPrecioDenominacion} | ${precio.precioVenta.toFixed(2)}`
+            : renglon.listaPrecioArticuloId > 0
+                ? `Precio #${renglon.listaPrecioArticuloId} no disponible. Seleccioná otro.`
+                : 'Sin artículo seleccionado';
+        const buscar = document.createElement('button');
+        buscar.type = 'button';
+        buscar.className = 'btn-secundario btn-chico';
+        buscar.dataset.buscarPrecio = '';
+        buscar.textContent = 'Buscar artículo y precio';
+        buscar.addEventListener('click', () => {
+            void abrirExplorer('Seleccionar artículo y lista de precios', ['Código', 'Artículo', 'Lista de precios', 'Precio'], async () => {
+                preciosArticulos = await api.obtenerPreciosArticulos();
+                return preciosArticulos;
+            }, p => [p.articuloCodigo, p.articuloDenominacion, p.listaPrecioDenominacion, p.precioVenta.toFixed(2)], elegido => {
+                renglon.listaPrecioArticuloId = elegido.id;
+                dibujarRenglones();
+            });
+        });
+        celdaPrecio.append(descripcion, buscar);
         crearInput(renglon.cantidad, 0.01, n => renglon.cantidad = n);
         crearInput(renglon.porcentajeBonificacion ?? 0, 0, n => renglon.porcentajeBonificacion = n, 100);
         const quitar = document.createElement('button');
         quitar.type = 'button';
-        quitar.textContent = 'X';
+        quitar.textContent = 'Quitar';
         quitar.className = 'btn-chico btn-borrar';
         quitar.addEventListener('click', () => {
             renglones.splice(indice, 1);
@@ -204,6 +230,7 @@ function mostrarAlta() {
     elemento('tabListado').classList.remove('activo');
     elemento('tabNueva').classList.add('activo');
     elemento('formAltaFactura').reset();
+    seleccionarCliente(null);
     elemento('inputNumero').readOnly = false;
     elemento('btnGuardarFactura').textContent =
         'Confirmar y Guardar Factura';
@@ -220,16 +247,22 @@ async function mostrarListado() {
 }
 async function editarFactura(id) {
     const factura = await api.obtenerParaEdicion(id);
-    await cargarOpciones();
+    const [, clientes, precios] = await Promise.all([
+        cargarOpciones(), api.obtenerClientes(), api.obtenerPreciosArticulos()
+    ]);
+    preciosArticulos = precios;
     mostrarAlta();
     facturaEnEdicionId = id;
     const numero = elemento('inputNumero');
     numero.value = String(factura.numeroFactura);
     numero.readOnly = true;
-    elemento('inputCliente').value =
-        factura.clienteId === null
-            ? ''
-            : String(factura.clienteId);
+    const cliente = clientes.find(c => c.id === factura.clienteId);
+    seleccionarCliente(cliente ?? null);
+    if (factura.clienteId !== null && !cliente) {
+        elemento('inputCliente').value = String(factura.clienteId);
+        elemento('clienteDescripcion').value =
+            `Cliente #${factura.clienteId} no disponible`;
+    }
     elemento('inputCondicionIva').value =
         String(factura.condicionIvaId);
     elemento('inputMoneda').value =
@@ -252,9 +285,9 @@ async function guardarFactura() {
         throw new Error('Agregá al menos un renglón.');
     }
     for (const renglon of renglones) {
-        if (!Number.isInteger(renglon.articuloId)
-            || renglon.articuloId <= 0) {
-            throw new Error('Los ID de artículo deben ser enteros positivos.');
+        if (!Number.isInteger(renglon.listaPrecioArticuloId)
+            || renglon.listaPrecioArticuloId <= 0) {
+            throw new Error('Seleccioná un artículo y su lista de precios en cada renglón.');
         }
     }
     const textoCliente = valor('inputCliente');
@@ -286,7 +319,94 @@ async function guardarFactura() {
     }
     await mostrarListado();
 }
+function seleccionarCliente(cliente) {
+    elemento('inputCliente').value = cliente ? String(cliente.id) : '';
+    elemento('clienteDescripcion').value =
+        cliente?.denominacion ?? 'Consumidor final';
+}
+function normalizarBusqueda(texto) {
+    return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+async function abrirExplorer(titulo, columnas, cargar, celdas, seleccionar) {
+    const dialog = elemento('explorerDialog');
+    const busqueda = elemento('explorerBusqueda');
+    const encabezado = elemento('explorerColumnas');
+    const tbody = elemento('explorerFilas');
+    const estado = elemento('explorerEstado');
+    const solicitud = ++solicitudExplorer;
+    elemento('explorerTitulo').textContent = titulo;
+    busqueda.value = '';
+    busqueda.disabled = true;
+    encabezado.replaceChildren();
+    tbody.replaceChildren();
+    estado.textContent = 'Cargando...';
+    filtrarExplorer = () => { };
+    for (const nombre of [...columnas, 'Acción']) {
+        const th = document.createElement('th');
+        th.scope = 'col';
+        th.textContent = nombre;
+        encabezado.appendChild(th);
+    }
+    dialog.showModal();
+    try {
+        const registros = await cargar();
+        if (solicitud !== solicitudExplorer || !dialog.open)
+            return;
+        filtrarExplorer = () => {
+            const filtro = normalizarBusqueda(busqueda.value);
+            const encontrados = registros.filter(registro => normalizarBusqueda(celdas(registro).join(' ')).includes(filtro));
+            tbody.replaceChildren();
+            estado.textContent = `${encontrados.length} resultado(s)`;
+            if (encontrados.length === 0) {
+                const celda = tbody.insertRow().insertCell();
+                celda.colSpan = columnas.length + 1;
+                celda.textContent = 'No hay resultados para la búsqueda.';
+            }
+            for (const registro of encontrados) {
+                const fila = tbody.insertRow();
+                for (const texto of celdas(registro))
+                    fila.insertCell().textContent = texto;
+                const boton = document.createElement('button');
+                boton.type = 'button';
+                boton.className = 'btn-primario btn-chico';
+                boton.textContent = 'Seleccionar';
+                boton.addEventListener('click', () => {
+                    seleccionar(registro);
+                    dialog.close();
+                });
+                fila.insertCell().appendChild(boton);
+            }
+        };
+        busqueda.disabled = false;
+        filtrarExplorer();
+        busqueda.focus();
+    }
+    catch (error) {
+        if (solicitud !== solicitudExplorer || !dialog.open)
+            return;
+        estado.textContent = 'No se pudieron cargar los datos. Cerrá la ventana y volvé a intentar.';
+        console.error(error);
+    }
+}
 document.addEventListener('DOMContentLoaded', () => {
+    elemento('btnBuscarCliente').addEventListener('click', () => {
+        void abrirExplorer('Seleccionar cliente', ['CUIT/CUIL', 'Denominación'], () => api.obtenerClientes(), cliente => [cliente.cuitCuil, cliente.denominacion], seleccionarCliente);
+    });
+    elemento('btnQuitarCliente').addEventListener('click', () => seleccionarCliente(null));
+    elemento('explorerBusqueda').addEventListener('input', () => filtrarExplorer());
+    elemento('btnCerrarExplorer').addEventListener('click', () => {
+        elemento('explorerDialog').close();
+    });
+    elemento('explorerDialog').addEventListener('keydown', evento => {
+        if (evento.key === 'Escape') {
+            evento.preventDefault();
+            elemento('explorerDialog').close();
+        }
+    });
+    elemento('explorerDialog').addEventListener('close', () => {
+        solicitudExplorer++;
+        filtrarExplorer = () => { };
+    });
     elemento('tabNueva').addEventListener('click', () => {
         void ejecutar(async () => {
             await cargarOpciones();
